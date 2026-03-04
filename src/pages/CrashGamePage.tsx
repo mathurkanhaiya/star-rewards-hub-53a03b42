@@ -160,10 +160,12 @@ export default function CrashGamePage() {
     startTimeRef.current = Date.now();
     triggerHaptic('impact');
 
-    // Deduct bet
-    supabase.from('balances').select('points').eq('user_id', user!.id).single().then(({ data }) => {
+    // Deduct bet immediately
+    supabase.from('balances').select('points, total_earned').eq('user_id', user!.id).single().then(({ data }) => {
       if (data) {
-        supabase.from('balances').update({ points: data.points - betAmount }).eq('user_id', user!.id);
+        supabase.from('balances').update({ points: data.points - betAmount }).eq('user_id', user!.id).then(() => {
+          refreshBalance();
+        });
       }
     });
   }

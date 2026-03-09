@@ -207,9 +207,9 @@ export default function WalletPage() {
             }}
           />
         </div>
-        {!withdrawUnlocked && (
+         {!withdrawUnlocked && (
           <p className="text-[10px] mt-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
-            Watch {REQUIRED_ADS - adCount} more ads to unlock withdrawal access
+            Watch {REQUIRED_ADS - adCount} more ads today to unlock withdrawal access (resets daily)
           </p>
         )}
       </div>

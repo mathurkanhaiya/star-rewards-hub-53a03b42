@@ -77,13 +77,15 @@ export default function LeaderboardPage() {
   const [contests, setContests] = useState<Contest[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<LeaderboardTab>('points');
+  const [adsSubTab, setAdsSubTab] = useState<AdsSubTab>('alltime');
+  const [adLeaders, setAdLeaders] = useState<any[]>([]);
 
   /* AUTO REFRESH */
   useEffect(() => {
     loadData();
     const interval = setInterval(loadData, 15000);
     return () => clearInterval(interval);
-  }, [tab]);
+  }, [tab, adsSubTab]);
 
   async function loadData() {
     setLoading(true);
@@ -102,17 +104,49 @@ export default function LeaderboardPage() {
     }
 
     if (tab === 'ads') {
+      // Load contest info
       const activeContests = await getActiveContests();
       setContests(activeContests as Contest[]);
 
-      const adContest = activeContests.find(
-        (c: Contest) => c.contest_type === 'ads_watch'
-      );
+      // Query ad_logs directly for leaderboard
+      let query = supabase
+        .from('ad_logs')
+        .select('user_id');
 
-      if (adContest) {
-        const entries = await getContestLeaderboard(adContest.id);
-        setContestLeaders(entries || []);
+      if (adsSubTab === 'today') {
+        const now = new Date();
+        const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+        query = query.gte('created_at', startOfDay);
       }
+
+      const { data: adLogs } = await query;
+
+      // Aggregate by user_id
+      const counts: Record<string, number> = {};
+      (adLogs || []).forEach((log: any) => {
+        counts[log.user_id] = (counts[log.user_id] || 0) + 1;
+      });
+
+      // Sort by count desc
+      const sorted = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 50);
+
+      // Fetch user info
+      const userIds = sorted.map(([uid]) => uid);
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, first_name, username, telegram_id, photo_url')
+        .in('id', userIds.length > 0 ? userIds : ['none']);
+
+      const userMap: Record<string, any> = {};
+      (users || []).forEach(u => { userMap[u.id] = u; });
+
+      setAdLeaders(sorted.map(([uid, score]) => ({
+        user_id: uid,
+        score,
+        users: userMap[uid] || {},
+      })));
     }
 
     setLoading(false);

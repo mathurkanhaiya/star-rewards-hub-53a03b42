@@ -2,10 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { submitWithdrawal, getWithdrawals } from '@/lib/api';
 import { Withdrawal } from '@/types/telegram';
+import { supabase } from '@/integrations/supabase/client';
 
-/* ===============================
-   TELEGRAM HAPTIC
-================================ */
 function triggerHaptic(type: 'impact' | 'success' | 'error' = 'impact') {
   if (typeof window !== 'undefined' && (window as any).Telegram) {
     const tg = (window as any).Telegram.WebApp;
@@ -15,9 +13,6 @@ function triggerHaptic(type: 'impact' | 'success' | 'error' = 'impact') {
   }
 }
 
-/* ===============================
-   ANIMATED NUMBER
-================================ */
 function AnimatedNumber({ value }: { value: number }) {
   const [display, setDisplay] = useState(value);
   const prev = useRef(value);
@@ -48,13 +43,12 @@ function AnimatedNumber({ value }: { value: number }) {
   return <>{display.toLocaleString()}</>;
 }
 
-/* ===============================
-   METHODS
-================================ */
 const METHODS = [
   { id: 'stars', label: 'Telegram Stars', icon: '⭐', color: '#22d3ee', rateKey: 'stars_conversion_rate' },
   { id: 'ton', label: 'TON', icon: '💎', color: '#3b82f6', rateKey: 'ton_conversion_rate' },
 ];
+
+const REQUIRED_ADS = 50;
 
 export default function WalletPage() {
   const { user, balance, settings, refreshBalance } = useApp();
@@ -66,13 +60,25 @@ export default function WalletPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [tab, setTab] = useState<'withdraw' | 'history'>('withdraw');
+  const [adCount, setAdCount] = useState<number>(0);
+  const [adCountLoading, setAdCountLoading] = useState(true);
 
   const availablePoints = balance?.points || 0;
   const minPoints = parseInt(settings.min_withdrawal_points || '10000');
+  const withdrawUnlocked = adCount >= REQUIRED_ADS;
 
   useEffect(() => {
     if (user) {
       getWithdrawals(user.id).then(w => setWithdrawals(w));
+      // Fetch total ad watches
+      supabase
+        .from('ad_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .then(({ count }) => {
+          setAdCount(count || 0);
+          setAdCountLoading(false);
+        });
     }
   }, [user]);
 
@@ -85,6 +91,12 @@ export default function WalletPage() {
 
   async function handleWithdraw() {
     if (!user || !selectedMethod) return;
+
+    if (!withdrawUnlocked) {
+      triggerHaptic('error');
+      setMessage(`Watch ${REQUIRED_ADS - adCount} more ads to unlock withdrawals`);
+      return;
+    }
 
     const pts = parseInt(points);
 
@@ -135,6 +147,8 @@ export default function WalletPage() {
     processing: '#38bdf8',
   };
 
+  const adProgress = Math.min(adCount / REQUIRED_ADS, 1);
+
   return (
     <div className="px-4 pb-28 text-white">
 
@@ -157,6 +171,44 @@ export default function WalletPage() {
         <div className="text-4xl font-bold text-yellow-400 drop-shadow-lg">
           <AnimatedNumber value={availablePoints} /> pts
         </div>
+      </div>
+
+      {/* AD REQUIREMENT PROGRESS */}
+      <div
+        className="rounded-2xl p-4 mb-5"
+        style={{
+          background: withdrawUnlocked ? 'rgba(34,197,94,0.08)' : 'rgba(250,204,21,0.08)',
+          border: `1px solid ${withdrawUnlocked ? 'rgba(34,197,94,0.3)' : 'rgba(250,204,21,0.3)'}`,
+        }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{withdrawUnlocked ? '✅' : '🔒'}</span>
+            <span className="text-sm font-bold">
+              {withdrawUnlocked ? 'Withdrawals Unlocked!' : 'Unlock Withdrawals'}
+            </span>
+          </div>
+          <span className="text-xs font-mono" style={{ color: withdrawUnlocked ? '#22c55e' : '#facc15' }}>
+            {adCountLoading ? '...' : `${Math.min(adCount, REQUIRED_ADS)}/${REQUIRED_ADS}`}
+          </span>
+        </div>
+        {/* Progress bar */}
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${adProgress * 100}%`,
+              background: withdrawUnlocked
+                ? 'linear-gradient(90deg, #22c55e, #4ade80)'
+                : 'linear-gradient(90deg, #facc15, #f97316)',
+            }}
+          />
+        </div>
+        {!withdrawUnlocked && (
+          <p className="text-[10px] mt-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
+            Watch {REQUIRED_ADS - adCount} more ads to unlock withdrawal access
+          </p>
+        )}
       </div>
 
       {/* TABS */}
@@ -259,15 +311,21 @@ export default function WalletPage() {
 
           <button
             onClick={handleWithdraw}
-            disabled={submitting || !selectedMethod}
+            disabled={submitting || !selectedMethod || !withdrawUnlocked}
             className="w-full py-4 rounded-2xl font-bold text-black active:scale-95 transition-all"
             style={{
-              background: 'linear-gradient(135deg,#facc15,#f97316)',
-              opacity: submitting || !selectedMethod ? 0.6 : 1,
-              boxShadow: '0 15px 30px rgba(250,204,21,0.4)',
+              background: withdrawUnlocked
+                ? 'linear-gradient(135deg,#facc15,#f97316)'
+                : 'linear-gradient(135deg,#64748b,#475569)',
+              opacity: submitting || !selectedMethod || !withdrawUnlocked ? 0.6 : 1,
+              boxShadow: withdrawUnlocked ? '0 15px 30px rgba(250,204,21,0.4)' : 'none',
             }}
           >
-            {submitting ? '⏳ Processing...' : '💰 Submit Withdrawal'}
+            {!withdrawUnlocked
+              ? `🔒 Watch ${REQUIRED_ADS - adCount} More Ads`
+              : submitting
+                ? '⏳ Processing...'
+                : '💰 Submit Withdrawal'}
           </button>
         </>
       ) : (

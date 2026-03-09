@@ -17,7 +17,7 @@ import AdminPanel from "@/pages/AdminPanel";
 import GamesPage from "@/pages/GamesPage";
 import TowerClimbPage from "@/pages/TowerClimbPage";
 import IdleMinerPage from "@/pages/IdleMinerPage";
-import LuckyBoxPage from "@/pages/LuckyBoxPage";
+import LuckyBoxPage from "@/pages/LuckyBoxge";
 import IdleLabPage from "@/pages/IdleLabPage";
 import WeeklyKingPage from "@/pages/WeeklyKingPage";
 
@@ -64,7 +64,7 @@ function AppContent() {
       case 'games': return <GamesPage onNavigate={setCurrentPage} />;
       case 'tower': return <TowerClimbPage />;
       case 'miner': return <IdleMinerPage />;
-      casluckybox': return <LuckyBoxamePage />;
+      caslue 'luckybox': return <LuckyBoxge />;
       case 'lab': return <IdleLabPage />;
       case 'weekly-king': return <WeeklyKingPage />;
       default: return <HomePage />;

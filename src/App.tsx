@@ -64,7 +64,7 @@ function AppContent() {
       case 'games': return <GamesPage onNavigate={setCurrentPage} />;
       case 'tower': return <TowerClimbPage />;
       case 'miner': return <IdleMinerPage />;
-      caslue 'luckybox': return <LuckyBoxge />;
+      case 'luckybox': return <LuckyBoxPage />;
       case 'lab': return <IdleLabPage />;
       case 'weekly-king': return <WeeklyKingPage />;
       default: return <HomePage />;

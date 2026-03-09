@@ -1,6 +1,6 @@
 import React from 'react';
 
-type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'miner' | 'crash' | 'lab' | 'weekly-king';
+type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'miner' | 'luckybox' | 'lab' | 'weekly-king';
 
 interface GamesMenuProps {
   onNavigate: (page: Page) => void;

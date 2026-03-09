@@ -23,7 +23,7 @@ import WeeklyKingPage from "@/pages/WeeklyKingPage";
 
 const queryClient = new QueryClient();
 
-type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'miner' | 'luckybox' | 'lab' | 'weekly-king';
+type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'miner' | 'luckyboxbox' | 'lab' | 'weekly-king';
 
 function AppContent() {
   const { isLoading, user, isAdmin } = useApp();
@@ -64,7 +64,7 @@ function AppContent() {
       case 'games': return <GamesPage onNavigate={setCurrentPage} />;
       case 'tower': return <TowerClimbPage />;
       case 'miner': return <IdleMinerPage />;
-      case 'crash': return <CrashGamePage />;
+      casluckybox': return <LuckyBoxamePage />;
       case 'lab': return <IdleLabPage />;
       case 'weekly-king': return <WeeklyKingPage />;
       default: return <HomePage />;

@@ -1,6 +1,6 @@
 import React from 'react';
 
-type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'miner' | 'luckybox' | 'lab' | 'weekly-king';
+type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'dice' | 'cardflip' | 'numberguess' | 'luckybox';
 
 interface GamesMenuProps {
   onNavigate: (page: Page) => void;
@@ -22,25 +22,25 @@ const games = [
     color: 'gold',
   },
   {
-    id: 'lab' as Page,
-    icon: '🔬',
-    name: 'Upgrade Lab',
-    desc: 'Build machines that generate income automatically. Upgrade & grow!',
+    id: 'dice' as Page,
+    icon: '🎲',
+    name: 'Dice Roll',
+    desc: 'Watch an ad, roll two dice, earn 10–100 points!',
     color: 'cyan',
   },
   {
-    id: 'miner' as Page,
-    icon: '⛏️',
-    name: 'Idle Miner',
-    desc: 'Build your mining empire! Earn coins per second, upgrade & collect.',
+    id: 'cardflip' as Page,
+    icon: '🃏',
+    name: 'Card Flip',
+    desc: 'Watch an ad, flip 3 cards — match them for big rewards!',
     color: 'purple',
   },
   {
-    id: 'weekly-king' as Page,
-    icon: '👑',
-    name: 'Weekly King',
-    desc: 'Compete for the top earner crown. Top 10 win weekly rewards!',
-    color: 'gold',
+    id: 'numberguess' as Page,
+    icon: '🎯',
+    name: 'Number Guess',
+    desc: 'Watch an ad, guess the hidden number, closer = more points!',
+    color: 'cyan',
   },
 ];
 

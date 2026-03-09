@@ -16,14 +16,14 @@ import NotificationsPage from "@/pages/NotificationsPage";
 import AdminPanel from "@/pages/AdminPanel";
 import GamesPage from "@/pages/GamesPage";
 import TowerClimbPage from "@/pages/TowerClimbPage";
-import IdleMinerPage from "@/pages/IdleMinerPage";
 import LuckyBoxPage from "@/pages/LuckyBoxPage";
-import IdleLabPage from "@/pages/IdleLabPage";
-import WeeklyKingPage from "@/pages/WeeklyKingPage";
+import DiceRollPage from "@/pages/DiceRollPage";
+import CardFlipPage from "@/pages/CardFlipPage";
+import NumberGuessPage from "@/pages/NumberGuessPage";
 
 const queryClient = new QueryClient();
 
-type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'miner' | 'luckybox' | 'lab' | 'weekly-king';
+type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'dice' | 'cardflip' | 'numberguess' | 'luckybox';
 
 function AppContent() {
   const { isLoading, user, isAdmin } = useApp();
@@ -63,10 +63,10 @@ function AppContent() {
       case 'admin': return isAdmin ? <AdminPanel /> : <HomePage />;
       case 'games': return <GamesPage onNavigate={setCurrentPage} />;
       case 'tower': return <TowerClimbPage />;
-      case 'miner': return <IdleMinerPage />;
       case 'luckybox': return <LuckyBoxPage />;
-      case 'lab': return <IdleLabPage />;
-      case 'weekly-king': return <WeeklyKingPage />;
+      case 'dice': return <DiceRollPage />;
+      case 'cardflip': return <CardFlipPage />;
+      case 'numberguess': return <NumberGuessPage />;
       default: return <HomePage />;
     }
   };

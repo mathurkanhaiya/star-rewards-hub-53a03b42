@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 
-type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'miner' | 'luckybox' | 'lab' | 'weekly-king';
+type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'dice' | 'cardflip' | 'numberguess' | 'luckybox';
 
 interface BottomNavProps {
   currentPage: Page;

@@ -107,12 +107,10 @@ export default function HomePage() {
     if (!user) return;
     const claim = await getDailyClaim(user.id);
     if (claim) {
-      const claimedAt = new Date(claim.claimed_at).getTime();
-      const nextAvailable = claimedAt + 24 * 60 * 60 * 1000;
-      const remaining = Math.max(
-        0,
-        Math.floor((nextAvailable - Date.now()) / 1000)
-      );
+      // Reset at midnight UTC (calendar day), matching backend's date-based check
+      const now = new Date();
+      const midnightUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+      const remaining = Math.max(0, Math.floor((midnightUTC.getTime() - now.getTime()) / 1000));
       setDailyCooldown(remaining);
     }
   }

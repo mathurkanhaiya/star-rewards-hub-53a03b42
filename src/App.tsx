@@ -23,7 +23,7 @@ import WeeklyKingPage from "@/pages/WeeklyKingPage";
 
 const queryClient = new QueryClient();
 
-type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'miner' | 'crash' | 'lab' | 'weekly-king';
+type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'miner' | 'luckybox' | 'lab' | 'weekly-king';
 
 function AppContent() {
   const { isLoading, user, isAdmin } = useApp();

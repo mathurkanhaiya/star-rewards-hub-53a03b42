@@ -7,7 +7,6 @@ import {
 import { LeaderboardEntry, Contest } from '@/types/telegram';
 import { useApp } from '@/context/AppContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useApp } from '@/context/AppContext';
 
 type LeaderboardTab = 'points' | 'ads';
 type AdsSubTab = 'alltime' | 'today';

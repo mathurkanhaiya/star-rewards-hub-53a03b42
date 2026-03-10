@@ -55,6 +55,8 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
         </p>
       </div>
 
+      <PromoSection />
+
       <div className="space-y-3">
         {games.map(game => (
           <button

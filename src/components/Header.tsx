@@ -3,14 +3,17 @@ import { useApp } from '@/context/AppContext';
 
 function getLevelInfo(level: number) {
   const levels = [
-    { name: 'Rookie', color: 'hsl(215 70% 60%)', min: 1, max: 3 },
-    { name: 'Bronze', color: 'hsl(25 80% 55%)', min: 4, max: 6 },
-    { name: 'Silver', color: 'hsl(0 0% 70%)', min: 7, max: 10 },
-    { name: 'Gold', color: 'hsl(45 100% 55%)', min: 11, max: 15 },
-    { name: 'Platinum', color: 'hsl(190 80% 60%)', min: 16, max: 20 },
-    { name: 'Diamond', color: 'hsl(265 80% 70%)', min: 21, max: 30 },
-    { name: 'Legend', color: 'hsl(0 90% 60%)', min: 31, max: 99 },
-  ];
+  { name: 'Beginner', color: 'hsl(200 60% 65%)', min: 1, max: 2 },
+  { name: 'Rookie', color: 'hsl(215 70% 60%)', min: 3, max: 4 },
+  { name: 'Iron', color: 'hsl(210 10% 50%)', min: 5, max: 6 },
+  { name: 'Bronze', color: 'hsl(25 80% 55%)', min: 7, max: 9 },
+  { name: 'Silver', color: 'hsl(0 0% 70%)', min: 10, max: 13 },
+  { name: 'Gold', color: 'hsl(45 100% 55%)', min: 14, max: 18 },
+  { name: 'Platinum', color: 'hsl(190 80% 60%)', min: 19, max: 24 },
+  { name: 'Diamond', color: 'hsl(265 80% 70%)', min: 25, max: 35 },
+  { name: 'Master', color: 'hsl(280 70% 60%)', min: 36, max: 50 },
+  { name: 'Legend', color: 'hsl(0 90% 60%)', min: 51, max: 99 }
+];
   return levels.find(l => level >= l.min && level <= l.max) || levels[0];
 }
 

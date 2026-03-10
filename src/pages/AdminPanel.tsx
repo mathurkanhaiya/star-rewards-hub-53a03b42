@@ -24,6 +24,7 @@ import AdminWithdrawalsTab from '@/components/admin/AdminWithdrawalsTab';
 import AdminTasksTab from '@/components/admin/AdminTasksTab';
 import AdminSettingsTab from '@/components/admin/AdminSettingsTab';
 import AdminContestsTab from '@/components/admin/AdminContestsTab';
+import AdminPromosTab from '@/components/admin/AdminPromosTab';
 
 type AdminTab =
   | 'dashboard'
@@ -31,6 +32,7 @@ type AdminTab =
   | 'withdrawals'
   | 'tasks'
   | 'contests'
+  | 'promos'
   | 'broadcast'
   | 'settings';
 
@@ -138,6 +140,7 @@ export default function AdminPanel() {
     { id: 'withdrawals', label: 'Withdraw', icon: '💰' },
     { id: 'tasks', label: 'Tasks', icon: '📋' },
     { id: 'contests', label: 'Contests', icon: '🏆' },
+    { id: 'promos', label: 'Promos', icon: '🎁' },
     { id: 'broadcast', label: 'Broadcast', icon: '📢' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
@@ -323,6 +326,10 @@ export default function AdminPanel() {
             loadDashboard();
           }}
         />
+      )}
+
+      {tab === 'promos' && (
+        <AdminPromosTab onMessage={showMsg} />
       )}
 
       {tab === 'broadcast' && (

@@ -604,6 +604,65 @@ export type Database = {
         }
         Relationships: []
       }
+      promo_claims: {
+        Row: {
+          claimed_at: string
+          id: string
+          promo_id: string
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          id?: string
+          promo_id: string
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string
+          id?: string
+          promo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_claims_promo_id_fkey"
+            columns: ["promo_id"]
+            isOneToOne: false
+            referencedRelation: "promos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promos: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          max_claims: number
+          reward_points: number
+          title: string
+          total_claimed: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_claims?: number
+          reward_points?: number
+          title: string
+          total_claimed?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_claims?: number
+          reward_points?: number
+          title?: string
+          total_claimed?: number
+        }
+        Relationships: []
+      }
       referrals: {
         Row: {
           created_at: string

@@ -1,4 +1,5 @@
 import React from 'react';
+import PromoSection from '@/components/games/PromoSection';
 
 type Page = 'home' | 'tasks' | 'spin' | 'referral' | 'leaderboard' | 'wallet' | 'notifications' | 'admin' | 'games' | 'tower' | 'dice' | 'cardflip' | 'numberguess' | 'luckybox';
 
@@ -54,6 +55,8 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
           Play games, earn points & climb leaderboards!
         </p>
       </div>
+
+      <PromoSection />
 
       <div className="space-y-3">
         {games.map(game => (

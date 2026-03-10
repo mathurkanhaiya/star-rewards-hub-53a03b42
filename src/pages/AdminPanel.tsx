@@ -328,6 +328,10 @@ export default function AdminPanel() {
         />
       )}
 
+      {tab === 'promos' && (
+        <AdminPromosTab onMessage={showMsg} />
+      )}
+
       {tab === 'broadcast' && (
         <div className="space-y-4">
           <textarea

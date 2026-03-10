@@ -46,37 +46,43 @@ function AppContent() {
   // Loading screen
   if (isLoading) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
+    <div className="flex flex-col items-center justify-center min-h-screen relative overflow-hidden">
 
-      {/* Circular loading logo */}
+      {/* soft background glow */}
+      <div className="absolute w-96 h-96 bg-yellow-500/10 blur-3xl rounded-full animate-pulse"></div>
+
+      {/* logo container */}
       <div className="relative mb-6">
+
+        {/* glow ring */}
+        <div className="absolute inset-0 w-28 h-28 bg-yellow-400/10 blur-2xl rounded-full"></div>
+
+        {/* logo with 3D float */}
         <img
           src="https://i.ibb.co/hJxry1hZ/53-AB4888-9018-455-D-B962-232-FAA620823.png"
           alt="Loading"
-          className="w-24 h-24 rounded-full animate-spin"
+          className="w-24 h-24 rounded-full shadow-2xl animate-[float3d_3s_ease-in-out_infinite]"
         />
 
-        {/* glow ring */}
-        <div className="absolute inset-0 rounded-full border-4 border-yellow-400/20 animate-pulse"></div>
       </div>
 
-      <div className="text-lg font-display font-bold shimmer-text">
+      {/* title */}
+      <div className="text-xl font-bold tracking-wide text-yellow-400">
         ADS REWARDS
       </div>
 
-      <div className="text-xs text-muted-foreground mt-2">
-        Loading your account...
+      {/* subtitle */}
+      <div className="text-xs text-gray-400 mt-2">
+        Preparing your rewards...
       </div>
 
-      <div className="mt-4 flex gap-1">
-        {[0, 1, 2].map((i) => (
+      {/* loading dots */}
+      <div className="mt-4 flex gap-2">
+        {[0,1,2].map(i => (
           <div
             key={i}
-            className="w-2 h-2 rounded-full"
-            style={{
-              background: "hsl(45 100% 55%)",
-              animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
-            }}
+            className="w-2 h-2 bg-yellow-400 rounded-full animate-bounce"
+            style={{ animationDelay: `${i * 0.2}s` }}
           />
         ))}
       </div>

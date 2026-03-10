@@ -140,6 +140,7 @@ export default function AdminPanel() {
     { id: 'withdrawals', label: 'Withdraw', icon: '💰' },
     { id: 'tasks', label: 'Tasks', icon: '📋' },
     { id: 'contests', label: 'Contests', icon: '🏆' },
+    { id: 'promos', label: 'Promos', icon: '🎁' },
     { id: 'broadcast', label: 'Broadcast', icon: '📢' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];

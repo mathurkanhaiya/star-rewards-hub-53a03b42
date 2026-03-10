@@ -236,12 +236,13 @@ export async function adminGetStats() {
   };
 }
 
-export async function adminGetUsers(page = 0) {
+export async function adminGetUsers() {
   const { data } = await supabase
     .from('users')
     .select('*, balances(*)')
     .order('created_at', { ascending: false })
-    .range(page * 20, page * 20 + 19);
+    .range(0, 9999);
+
   return data || [];
 }
 

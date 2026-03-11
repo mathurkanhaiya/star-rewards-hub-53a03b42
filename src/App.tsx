@@ -47,18 +47,6 @@ function AppContent() {
     typeof window !== "undefined" &&
     (window as any).Telegram?.WebApp;
 
-  /* TELEGRAM ACCESS CHECK */
-  if (!isTelegram) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
-        <div className="text-6xl mb-4">🚫</div>
-        <h1 className="text-2xl font-bold mb-2">Open in Telegram</h1>
-        <p className="text-sm text-gray-400">
-          This app can only be used inside Telegram.
-        </p>
-      </div>
-    );
-  }
 
   /* LOADING SCREEN */
   if (isLoading) {

@@ -38,7 +38,7 @@ const games = [
   },
   {
     id: 'dice' as Page,
-    icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236312067-54b2669f.gif',
+    icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236388452-80bcfe97.gif',
     name: 'Dice Roll',
     desc: 'Watch an ad, roll two dice, earn 10–100 points!',
     color: 'cyan',
@@ -52,7 +52,7 @@ const games = [
   },
   {
     id: 'numberguess' as Page,
-    icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236388452-80bcfe97.gif',
+    icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236312067-54b2669f.gif'',
     name: 'Number Guess',
     desc: 'Watch an ad, guess the hidden number, closer = more points!',
     color: 'cyan',

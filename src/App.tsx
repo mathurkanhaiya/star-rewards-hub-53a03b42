@@ -43,10 +43,22 @@ function AppContent() {
   const { isLoading, user, isAdmin } = useApp();
   const [currentPage, setCurrentPage] = useState<Page>("home");
 
-  const isTelegram =
-    typeof window !== "undefined" &&
-    (window as any).Telegram?.WebApp;
+  const tg = (window as any)?.Telegram?.WebApp;
 
+const isTelegram =
+  typeof window !== "undefined" &&
+  tg &&
+  tg.initDataUnsafe?.user;
+
+if (!isTelegram) {
+  return (
+    <div className="flex items-center justify-center min-h-screen text-center">
+      <h2 className="text-xl font-bold">
+        Open this Mini App inside Telegram
+      </h2>
+    </div>
+  );
+}
 
   /* LOADING SCREEN */
   if (isLoading) {

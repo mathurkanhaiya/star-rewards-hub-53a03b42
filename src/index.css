@@ -399,3 +399,15 @@
 .game-card:hover::before {
   left: 120%;
 }
+
+.dice-shake{
+animation:diceShake .5s infinite;
+}
+
+@keyframes diceShake{
+0%{transform:rotate(0deg) translateY(0)}
+25%{transform:rotate(8deg) translateY(-4px)}
+50%{transform:rotate(-8deg) translateY(4px)}
+75%{transform:rotate(6deg) translateY(-2px)}
+100%{transform:rotate(0deg) translateY(0)}
+}

@@ -136,7 +136,11 @@ export default function LuckyBoxPage() {
     <div className="px-4 pb-28">
       {/* Header */}
       <div className="text-center mb-6">
-        <div className="text-5xl mb-2 animate-float">🎁</div>
+       <img
+  src="https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236074591-d9f8b5e0.gif"
+  alt="Lucky Box"
+  className="w-20 h-20 mx-auto mb-2 object-contain animate-float"
+/>
         <h2 className="text-2xl font-bold shimmer-text">Lucky Box</h2>
         <p className="text-sm mt-1" style={{ color: 'hsl(var(--muted-foreground))' }}>
           Watch an ad, pick a box, win prizes!

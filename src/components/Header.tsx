@@ -1,21 +1,21 @@
-import React from 'react';
-import { useApp } from '@/context/AppContext';
+import React from "react";
+import { useApp } from "@/context/AppContext";
 
 function getLevelInfo(level: number) {
   const levels = [
-    { name: 'Beginner', color: 'hsl(200 60% 65%)', min: 1, max: 2 },
-    { name: 'Rookie', color: 'hsl(215 70% 60%)', min: 3, max: 4 },
-    { name: 'Iron', color: 'hsl(210 10% 50%)', min: 5, max: 6 },
-    { name: 'Bronze', color: 'hsl(25 80% 55%)', min: 7, max: 9 },
-    { name: 'Silver', color: 'hsl(0 0% 70%)', min: 10, max: 13 },
-    { name: 'Gold', color: 'hsl(45 100% 55%)', min: 14, max: 18 },
-    { name: 'Platinum', color: 'hsl(190 80% 60%)', min: 19, max: 24 },
-    { name: 'Diamond', color: 'hsl(265 80% 70%)', min: 25, max: 35 },
-    { name: 'Master', color: 'hsl(280 70% 60%)', min: 36, max: 50 },
-    { name: 'Legend', color: 'hsl(0 90% 60%)', min: 51, max: 99 }
+    { name: "Beginner", color: "hsl(200 60% 65%)", min: 1, max: 2 },
+    { name: "Rookie", color: "hsl(215 70% 60%)", min: 3, max: 4 },
+    { name: "Iron", color: "hsl(210 10% 50%)", min: 5, max: 6 },
+    { name: "Bronze", color: "hsl(25 80% 55%)", min: 7, max: 9 },
+    { name: "Silver", color: "hsl(0 0% 70%)", min: 10, max: 13 },
+    { name: "Gold", color: "hsl(45 100% 55%)", min: 14, max: 18 },
+    { name: "Platinum", color: "hsl(190 80% 60%)", min: 19, max: 24 },
+    { name: "Diamond", color: "hsl(265 80% 70%)", min: 25, max: 35 },
+    { name: "Master", color: "hsl(280 70% 60%)", min: 36, max: 50 },
+    { name: "Legend", color: "hsl(0 90% 60%)", min: 51, max: 99 },
   ];
 
-  return levels.find(l => level >= l.min && level <= l.max) || levels[0];
+  return levels.find((l) => level >= l.min && level <= l.max) || levels[0];
 }
 
 export default function Header() {
@@ -26,7 +26,7 @@ export default function Header() {
   const displayName =
     user?.first_name ||
     telegramUser?.first_name ||
-    'User';
+    "User";
 
   const points = balance?.points || 0;
 
@@ -36,7 +36,7 @@ export default function Header() {
       {/* USER ROW */}
       <div className="flex items-center justify-between mb-4">
 
-        {/* LEFT SIDE */}
+        {/* LEFT */}
         <div className="flex items-center gap-3">
 
           {/* AVATAR */}
@@ -62,8 +62,8 @@ export default function Header() {
               className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
               style={{
                 background: levelInfo.color,
-                color: 'hsl(220 30% 5%)',
-                fontSize: 9
+                color: "hsl(220 30% 5%)",
+                fontSize: 9,
               }}
             >
               {user?.level || 1}
@@ -78,7 +78,7 @@ export default function Header() {
 
               {user?.username && (
                 <span className="text-muted-foreground font-normal">
-                  {' '}@{user.username}
+                  {" "}@{user.username}
                 </span>
               )}
             </div>
@@ -88,7 +88,13 @@ export default function Header() {
               className="text-xs font-medium flex items-center gap-1"
               style={{ color: levelInfo.color }}
             >
-              <tg-emoji emoji-id="5325547803936572038">✨</tg-emoji>
+              <tg-emoji
+                emoji-id="5325547803936572038"
+                class="sparkle-emoji"
+              >
+                ✨
+              </tg-emoji>
+
               {levelInfo.name}
             </div>
 
@@ -98,20 +104,27 @@ export default function Header() {
 
         {/* POINTS BADGE */}
         <div
-          className="px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1"
+          className="px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1 points-badge"
           style={{
             background:
-              'linear-gradient(135deg, hsl(45 100% 55% / 0.15), hsl(45 100% 55% / 0.05))',
-            border: '1px solid hsl(45 100% 55% / 0.3)',
-            color: 'hsl(var(--gold))'
+              "linear-gradient(135deg, hsl(45 100% 55% / 0.15), hsl(45 100% 55% / 0.05))",
+            border: "1px solid hsl(45 100% 55% / 0.3)",
+            color: "hsl(var(--gold))",
           }}
         >
-          ⚡ {points.toLocaleString()}
+          <tg-emoji
+            emoji-id="5249381781622247862"
+            class="pulse-emoji"
+          >
+            ⚡
+          </tg-emoji>
+
+          {points.toLocaleString()}
         </div>
 
       </div>
 
-      {/* APP TITLE */}
+      {/* TITLE */}
       <div className="text-center mb-1">
         <h1 className="text-lg font-display font-bold shimmer-text tracking-wider">
           ADS REWARDS

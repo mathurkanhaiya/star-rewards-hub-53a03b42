@@ -25,21 +25,24 @@ body{
 </style>
 
 <script>
-window.addEventListener("DOMContentLoaded", function(){
+window.addEventListener("DOMContentLoaded", function () {
 
-  const isTelegram =
-    window.Telegram &&
-    Telegram.WebApp &&
-    Telegram.WebApp.initData &&
-    Telegram.WebApp.initData.length > 0;
+  const tg = window.Telegram?.WebApp;
 
-  if(!isTelegram){
-    document.body.innerHTML = "<h2 style='text-align:center;margin-top:40vh'>Open this app inside Telegram</h2>";
+  const isTelegramMiniApp =
+    tg &&
+    tg.platform &&
+    tg.initDataUnsafe &&
+    tg.initDataUnsafe.user;
+
+  if (!isTelegramMiniApp) {
+    document.body.innerHTML =
+      "<h2 style='text-align:center;margin-top:40vh'>Open this Mini App inside Telegram</h2>";
     return;
   }
 
-  Telegram.WebApp.expand();
-  Telegram.WebApp.ready();
+  tg.expand();
+  tg.ready();
 
 });
 </script>

@@ -18,6 +18,25 @@ function getLevelInfo(level: number) {
   return levels.find((l) => level >= l.min && level <= l.max) || levels[0];
 }
 
+function TgEmoji({ id, size = 20 }: { id: string; size?: number }) {
+  return (
+    <video
+      src={`https://telegram.org/emoji/${id}`}
+      autoPlay
+      loop
+      muted
+      playsInline
+      style={{
+        width: size,
+        height: size,
+        background: "transparent",
+        objectFit: "contain",
+        borderRadius: "0",
+      }}
+    />
+  );
+}
+
 export default function Header() {
   const { user, balance, telegramUser } = useApp();
 
@@ -33,13 +52,11 @@ export default function Header() {
   return (
     <div className="px-4 pt-4 pb-2">
 
-      {/* USER ROW */}
       <div className="flex items-center justify-between mb-4">
 
-        {/* LEFT SIDE */}
         <div className="flex items-center gap-3">
 
-          {/* AVATAR */}
+          {/* Avatar */}
           <div
             className="w-11 h-11 rounded-full flex items-center justify-center text-lg font-bold relative"
             style={{
@@ -57,7 +74,6 @@ export default function Header() {
               <span>{displayName[0]?.toUpperCase()}</span>
             )}
 
-            {/* LEVEL BADGE */}
             <div
               className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
               style={{
@@ -70,12 +86,10 @@ export default function Header() {
             </div>
           </div>
 
-          {/* NAME + LEVEL */}
+          {/* Name + Level */}
           <div>
-
             <div className="text-sm font-semibold text-foreground">
               {displayName}
-
               {user?.username && (
                 <span className="text-muted-foreground font-normal">
                   {" "}@{user.username}
@@ -83,28 +97,17 @@ export default function Header() {
               )}
             </div>
 
-            {/* LEVEL TEXT */}
             <div
               className="text-xs font-medium flex items-center gap-1"
               style={{ color: levelInfo.color }}
             >
-              <video
-                src="https://telegram.org/emoji/5325547803936572038"
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-4 h-4"
-              />
-
+              <TgEmoji id="5325547803936572038" size={16} />
               {levelInfo.name}
             </div>
-
           </div>
-
         </div>
 
-        {/* POINTS BADGE */}
+        {/* Points */}
         <div
           className="px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1"
           style={{
@@ -114,23 +117,15 @@ export default function Header() {
             color: "hsl(var(--gold))",
           }}
         >
-          <video
-            src="https://telegram.org/emoji/5249381781622247862"
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-5 h-5"
-          />
-
+          <TgEmoji id="5249381781622247862" size={18} />
           {points.toLocaleString()}
         </div>
 
       </div>
 
-      {/* APP TITLE */}
+      {/* Title */}
       <div className="text-center mb-1">
-        <h1 className="text-lg font-display font-bold shimmer-text tracking-wider">
+        <h1 className="text-lg font-display font-bold tracking-wider">
           ADS REWARDS
         </h1>
       </div>

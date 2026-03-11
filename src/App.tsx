@@ -43,104 +43,108 @@ function AppContent() {
   const { isLoading, user, isAdmin } = useApp();
   const [currentPage, setCurrentPage] = useState<Page>("home");
 
-  // Loading screen
-  if (isLoading) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen relative overflow-hidden">
+  const isTelegram =
+    typeof window !== "undefined" &&
+    (window as any).Telegram?.WebApp;
 
-      {/* soft background glow */}
-      <div className="absolute w-96 h-96 bg-yellow-500/10 blur-3xl rounded-full animate-pulse"></div>
-
-      {/* logo container */}
-      <div className="relative mb-6">
-
-        {/* glow ring */}
-        <div className="absolute inset-0 w-28 h-28 bg-yellow-400/10 blur-2xl rounded-full"></div>
-
-        {/* logo with 3D float */}
-        <img
-          src="https://i.ibb.co/hJxry1hZ/53-AB4888-9018-455-D-B962-232-FAA620823.png"
-          alt="Loading"
-          className="w-24 h-24 rounded-full shadow-2xl animate-[float3d_3s_ease-in-out_infinite]"
-        />
-
-      </div>
-
-      {/* title */}
-      <div className="text-xl font-bold tracking-wide text-yellow-400">
-        ADS REWARDS
-      </div>
-
-      {/* subtitle */}
-      <div className="text-xs text-gray-400 mt-2">
-        Preparing your rewards...
-      </div>
-
-      {/* loading dots */}
-      <div className="mt-4 flex gap-2">
-        {[0,1,2].map(i => (
-          <div
-            key={i}
-            className="w-2 h-2 bg-yellow-400 rounded-full animate-bounce"
-            style={{ animationDelay: `${i * 0.2}s` }}
-          />
-        ))}
-      </div>
-
-    </div>
-  );
-}
-
-  // 🚫 BAN CHECK
-  if (user?.is_banned) {
-  const contactAdmin = () => {
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.openTelegramLink("https://t.me/im_poorman");
-    } else {
-      window.open("https://t.me/im_poorman", "_blank");
-    }
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative overflow-hidden">
-
-      {/* background glow */}
-      <div className="absolute inset-0 bg-red-500/10 blur-3xl animate-pulse"></div>
-
-      {/* icon */}
-      <div className="text-7xl mb-4 animate-bounce">🚫</div>
-
-      {/* title */}
-      <h1 className="text-3xl font-extrabold text-red-500 mb-2 animate-pulse">
-        ACCOUNT BANNED
-      </h1>
-
-      {/* message */}
-      <p className="text-sm text-gray-300 max-w-xs">
-        Your account has been suspended for violating our platform rules.
-      </p>
-
-      {(user as any)?.ban_reason && (
-        <p className="text-xs text-red-300 mt-3">
-          Reason: {(user as any).ban_reason}
+  /* TELEGRAM ACCESS CHECK */
+  if (!isTelegram) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-center px-6">
+        <div className="text-6xl mb-4">🚫</div>
+        <h1 className="text-2xl font-bold mb-2">Open in Telegram</h1>
+        <p className="text-sm text-gray-400">
+          This app can only be used inside Telegram.
         </p>
-      )}
+      </div>
+    );
+  }
 
-      {/* CONTACT BUTTON */}
-      <button
-        onClick={contactAdmin}
-        className="mt-6 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition transform hover:scale-105 shadow-lg"
-      >
-        Contact Admin
-      </button>
+  /* LOADING SCREEN */
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen relative overflow-hidden">
 
-      <p className="text-xs text-gray-500 mt-4">
-        If you believe this was a mistake, contact support.
-      </p>
+        <div className="absolute w-96 h-96 bg-yellow-500/10 blur-3xl rounded-full animate-pulse"></div>
 
-    </div>
-  );
-}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 w-28 h-28 bg-yellow-400/10 blur-2xl rounded-full"></div>
+
+          <img
+            src="https://i.ibb.co/hJxry1hZ/53-AB4888-9018-455-D-B962-232-FAA620823.png"
+            alt="Loading"
+            className="w-24 h-24 rounded-full shadow-2xl animate-[float3d_3s_ease-in-out_infinite]"
+          />
+        </div>
+
+        <div className="text-xl font-bold tracking-wide text-yellow-400">
+          ADS REWARDS
+        </div>
+
+        <div className="text-xs text-gray-400 mt-2">
+          Preparing your rewards...
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          {[0,1,2].map(i => (
+            <div
+              key={i}
+              className="w-2 h-2 bg-yellow-400 rounded-full animate-bounce"
+              style={{ animationDelay: `${i * 0.2}s` }}
+            />
+          ))}
+        </div>
+
+      </div>
+    );
+  }
+
+  /* BAN CHECK */
+  if (user?.is_banned) {
+    const contactAdmin = () => {
+      if ((window as any).Telegram?.WebApp) {
+        (window as any).Telegram.WebApp.openTelegramLink("https://t.me/im_poorman");
+      } else {
+        window.open("https://t.me/im_poorman", "_blank");
+      }
+    };
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative overflow-hidden">
+
+        <div className="absolute inset-0 bg-red-500/10 blur-3xl animate-pulse"></div>
+
+        <div className="text-7xl mb-4 animate-bounce">🚫</div>
+
+        <h1 className="text-3xl font-extrabold text-red-500 mb-2 animate-pulse">
+          ACCOUNT BANNED
+        </h1>
+
+        <p className="text-sm text-gray-300 max-w-xs">
+          Your account has been suspended for violating our platform rules.
+        </p>
+
+        {(user as any)?.ban_reason && (
+          <p className="text-xs text-red-300 mt-3">
+            Reason: {(user as any).ban_reason}
+          </p>
+        )}
+
+        <button
+          onClick={contactAdmin}
+          className="mt-6 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition transform hover:scale-105 shadow-lg"
+        >
+          Contact Admin
+        </button>
+
+        <p className="text-xs text-gray-500 mt-4">
+          If you believe this was a mistake, contact support.
+        </p>
+
+      </div>
+    );
+  }
+
   const renderPage = () => {
     switch (currentPage) {
       case "home":
@@ -186,7 +190,6 @@ function AppContent() {
           "radial-gradient(ellipse at top left, hsl(220 40% 8%) 0%, hsl(220 30% 3%) 60%)",
       }}
     >
-      {/* Ambient glow */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
@@ -198,6 +201,7 @@ function AppContent() {
       />
 
       <div className="relative z-10">
+
         <Header />
 
         {currentPage !== "leaderboard" ? (
@@ -221,6 +225,7 @@ function AppContent() {
         <main className="pt-1 pb-2">{renderPage()}</main>
 
         <BottomNav currentPage={currentPage} onNavigate={setCurrentPage} />
+
       </div>
     </div>
   );

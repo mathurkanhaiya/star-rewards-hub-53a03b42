@@ -68,10 +68,11 @@ export default function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
         }}
       >
         <div className="flex items-center justify-around">
+
           {navItems.map((item) => (
             <button
               key={item.id}
-              className={`bottom-nav-item ${
+              className={`bottom-nav-item flex flex-col items-center justify-center ${
                 currentPage === item.id ? 'active' : ''
               }`}
               onClick={() => onNavigate(item.id)}
@@ -79,8 +80,13 @@ export default function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
               <img
                 src={item.icon}
                 alt={item.label}
-                className="w-6 h-6 object-contain"
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  objectFit: 'contain'
+                }}
               />
+
               <span className="font-medium" style={{ fontSize: 9 }}>
                 {item.label}
               </span>
@@ -89,17 +95,20 @@ export default function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
 
           {/* Notifications */}
           <button
-            className={`bottom-nav-item relative ${
+            className={`bottom-nav-item relative flex flex-col items-center ${
               currentPage === 'notifications' ? 'active' : ''
             }`}
             onClick={() => onNavigate('notifications')}
           >
-            <span className="text-lg">🔔</span>
+            <span style={{ fontSize: 20 }}>🔔</span>
 
             {unreadCount > 0 && (
               <div
                 className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white font-bold"
-                style={{ background: 'hsl(0 80% 55%)', fontSize: 8 }}
+                style={{
+                  background: 'hsl(0 80% 55%)',
+                  fontSize: 8
+                }}
               >
                 {unreadCount > 9 ? '9+' : unreadCount}
               </div>
@@ -112,17 +121,18 @@ export default function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
 
           {isAdmin && (
             <button
-              className={`bottom-nav-item ${
+              className={`bottom-nav-item flex flex-col items-center ${
                 currentPage === 'admin' ? 'active' : ''
               }`}
               onClick={() => onNavigate('admin')}
             >
-              <span className="text-lg">⚙️</span>
+              <span style={{ fontSize: 20 }}>⚙️</span>
               <span className="font-medium" style={{ fontSize: 9 }}>
                 Admin
               </span>
             </button>
           )}
+
         </div>
       </div>
     </div>

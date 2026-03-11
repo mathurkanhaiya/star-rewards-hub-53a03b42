@@ -18,24 +18,6 @@ function getLevelInfo(level: number) {
   return levels.find((l) => level >= l.min && level <= l.max) || levels[0];
 }
 
-function TgEmoji({ id, size = 20 }: { id: string; size?: number }) {
-  return (
-    <video
-      src={`https://telegram.org/emoji/${id}`}
-      autoPlay
-      loop
-      muted
-      playsInline
-      style={{
-        width: size,
-        height: size,
-        background: "transparent",
-        objectFit: "contain",
-        borderRadius: "0",
-      }}
-    />
-  );
-}
 
 export default function Header() {
   const { user, balance, telegramUser } = useApp();

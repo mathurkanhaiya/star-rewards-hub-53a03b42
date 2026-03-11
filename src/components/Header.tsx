@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '@/context/AppContext';
 
-function getLevelInfo(level) {
+function getLevelInfo(level: number) {
   const levels = [
     { name: 'Beginner', color: 'hsl(200 60% 65%)', min: 1, max: 2 },
     { name: 'Rookie', color: 'hsl(215 70% 60%)', min: 3, max: 4 },
@@ -33,9 +33,10 @@ export default function Header() {
   return (
     <div className="px-4 pt-4 pb-2">
 
-      {/* USER INFO ROW */}
+      {/* USER ROW */}
       <div className="flex items-center justify-between mb-4">
 
+        {/* LEFT SIDE */}
         <div className="flex items-center gap-3">
 
           {/* AVATAR */}
@@ -43,7 +44,7 @@ export default function Header() {
             className="w-11 h-11 rounded-full flex items-center justify-center text-lg font-bold relative"
             style={{
               background: `linear-gradient(135deg, ${levelInfo.color}, hsl(220 30% 20%))`,
-              boxShadow: `0 0 15px ${levelInfo.color}40`
+              boxShadow: `0 0 15px ${levelInfo.color}40`,
             }}
           >
             {user?.photo_url ? (

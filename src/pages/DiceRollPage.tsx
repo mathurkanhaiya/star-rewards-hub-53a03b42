@@ -73,7 +73,7 @@ export default function DiceRollPage() {
 
       {/* Dice GIF Header */}
       <img
-        src="https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236312067-54b2669f.gif"
+        src="https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236388452-80bcfe97.gif
         alt="Dice Roll"
         className="w-20 h-20 mx-auto mb-2 object-contain animate-float"
       />

@@ -36,7 +36,7 @@ export default function Header() {
       {/* USER ROW */}
       <div className="flex items-center justify-between mb-4">
 
-        {/* LEFT */}
+        {/* LEFT SIDE */}
         <div className="flex items-center gap-3">
 
           {/* AVATAR */}
@@ -83,17 +83,19 @@ export default function Header() {
               )}
             </div>
 
-            {/* LEVEL LABEL */}
+            {/* LEVEL TEXT */}
             <div
               className="text-xs font-medium flex items-center gap-1"
               style={{ color: levelInfo.color }}
             >
-              <tg-emoji
-                emoji-id="5325547803936572038"
-                class="sparkle-emoji"
-              >
-                ✨
-              </tg-emoji>
+              <video
+                src="https://telegram.org/emoji/5325547803936572038"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-4 h-4"
+              />
 
               {levelInfo.name}
             </div>
@@ -104,7 +106,7 @@ export default function Header() {
 
         {/* POINTS BADGE */}
         <div
-          className="px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1 points-badge"
+          className="px-3 py-1.5 rounded-xl text-sm font-bold flex items-center gap-1"
           style={{
             background:
               "linear-gradient(135deg, hsl(45 100% 55% / 0.15), hsl(45 100% 55% / 0.05))",
@@ -112,19 +114,21 @@ export default function Header() {
             color: "hsl(var(--gold))",
           }}
         >
-          <tg-emoji
-            emoji-id="5249381781622247862"
-            class="pulse-emoji"
-          >
-            ⚡
-          </tg-emoji>
+          <video
+            src="https://telegram.org/emoji/5249381781622247862"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-5 h-5"
+          />
 
           {points.toLocaleString()}
         </div>
 
       </div>
 
-      {/* TITLE */}
+      {/* APP TITLE */}
       <div className="text-center mb-1">
         <h1 className="text-lg font-display font-bold shimmer-text tracking-wider">
           ADS REWARDS

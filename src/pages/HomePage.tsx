@@ -1,18 +1,19 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useApp } from '@/context/AppContext';
-import { claimDailyReward, getTransactions, logAdWatch, getDailyClaim } from '@/lib/api';
-import { useRewardedAd } from '@/hooks/useAdsgram';
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useApp } from "@/context/AppContext";
+import { claimDailyReward, getTransactions, logAdWatch, getDailyClaim } from "@/lib/api";
+import { useRewardedAd } from "@/hooks/useAdsgram";
 
 /* ===============================
    HAPTIC
 ================================ */
 function triggerHaptic(type) {
-  if (typeof window !== 'undefined' && window.Telegram) {
+  if (typeof window !== "undefined" && window.Telegram) {
     const tg = window.Telegram.WebApp;
+
     if (tg?.HapticFeedback) {
-      if (type === 'impact') tg.HapticFeedback.impactOccurred('medium');
-      if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
-      if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
+      if (type === "impact") tg.HapticFeedback.impactOccurred("medium");
+      if (type === "success") tg.HapticFeedback.notificationOccurred("success");
+      if (type === "error") tg.HapticFeedback.notificationOccurred("error");
     }
   }
 }
@@ -44,6 +45,7 @@ function AnimatedNumber({ value }) {
     }, 20);
 
     prev.current = value;
+
     return () => clearInterval(timer);
   }, [value]);
 
@@ -55,16 +57,16 @@ function formatCountdown(seconds) {
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
 
-  return `${h.toString().padStart(2,'0')}:${m
+  return `${h.toString().padStart(2, "0")}:${m
     .toString()
-    .padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
 export default function HomePage() {
   const { user, balance, settings, refreshBalance } = useApp();
 
   const [dailyClaiming, setDailyClaiming] = useState(false);
-  const [dailyMessage, setDailyMessage] = useState('');
+  const [dailyMessage, setDailyMessage] = useState("");
   const [transactions, setTransactions] = useState([]);
   const [adLoading, setAdLoading] = useState(false);
   const [dailyCooldown, setDailyCooldown] = useState(0);
@@ -76,57 +78,72 @@ export default function HomePage() {
   const onAdReward = useCallback(async () => {
     if (!user) return;
 
-    triggerHaptic('success');
+    triggerHaptic("success");
 
-    await logAdWatch(user.id, 'bonus_reward', 50);
+    await logAdWatch(user.id, "adsgram_reward", 50);
     await refreshBalance();
 
     setCoinBurst(true);
-    setDailyMessage('+50 pts bonus 🎬');
+    setDailyMessage("+50 pts bonus 🎬");
 
     setTimeout(() => setCoinBurst(false), 1200);
-    setTimeout(() => setDailyMessage(''), 3000);
+    setTimeout(() => setDailyMessage(""), 3000);
   }, [user, refreshBalance]);
 
   const { showAd } = useRewardedAd(onAdReward);
 
   /* ===============================
-     EFFECTIVEGATE POPUP AD
+     ADSTERRA POPUNDER
   =================================*/
-  function loadGateAdScript() {
-    const old = document.getElementById('gate-ad-script');
+  function showAdsterraPopunder() {
+    const script = document.createElement("script");
 
-    if (old) {
-      old.remove();
-    }
-
-    const script = document.createElement('script');
     script.src =
-      'https://pl28904336.effectivegatecpm.com/43/dc/6e/43dc6e7f42cb75b97aff13c278339d34.js';
+      "https://pl28904336.effectivegatecpm.com/43/dc/6e/43dc6e7f42cb75b97aff13c278339d34.js";
+
     script.async = true;
-    script.id = 'gate-ad-script';
 
     document.body.appendChild(script);
   }
 
-  async function handlePopupAd() {
+  async function handlePopunderReward() {
     if (!user) return;
 
-    triggerHaptic('impact');
+    triggerHaptic("impact");
 
-    loadGateAdScript();
+    showAdsterraPopunder();
 
     setTimeout(async () => {
-      await logAdWatch(user.id, 'popup_ad', 30);
+      await logAdWatch(user.id, "adsterra_popunder", 30);
+
       await refreshBalance();
 
       setCoinBurst(true);
-      setDailyMessage('+30 pts popup bonus 📺');
+      setDailyMessage("+30 pts Adsterra reward 📺");
 
       setTimeout(() => setCoinBurst(false), 1200);
-      setTimeout(() => setDailyMessage(''), 3000);
+      setTimeout(() => setDailyMessage(""), 3000);
     }, 4000);
   }
+
+  /* ===============================
+     ADSTERRA NATIVE BANNER
+  =================================*/
+  useEffect(() => {
+    const script = document.createElement("script");
+
+    script.src =
+      "https://pl28904350.effectivegatecpm.com/1b89685908e0ae9bf3327082f3d0a363/invoke.js";
+
+    script.async = true;
+    script.setAttribute("data-cfasync", "false");
+
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   /* ===============================
      LOAD DATA
@@ -135,6 +152,7 @@ export default function HomePage() {
     if (!user) return;
 
     getTransactions(user.id).then(setTransactions);
+
     checkDailyCooldown();
   }, [user]);
 
@@ -142,7 +160,7 @@ export default function HomePage() {
     if (dailyCooldown <= 0) return;
 
     const interval = setInterval(() => {
-      setDailyCooldown(prev => (prev <= 1 ? 0 : prev - 1));
+      setDailyCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
 
     return () => clearInterval(interval);
@@ -155,6 +173,7 @@ export default function HomePage() {
 
     if (claim) {
       const now = new Date();
+
       const midnightUTC = new Date(
         Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
       );
@@ -171,18 +190,21 @@ export default function HomePage() {
   async function handleDailyClaim() {
     if (!user || dailyCooldown > 0) return;
 
-    triggerHaptic('impact');
+    triggerHaptic("impact");
+
     setDailyClaiming(true);
 
     const result = await claimDailyReward(user.id);
 
     if (result.success) {
-      triggerHaptic('success');
+      triggerHaptic("success");
 
       setDailyMessage(`+${result.points} pts 🔥`);
+
       setCoinBurst(true);
 
       const now = new Date();
+
       const midnightUTC = new Date(
         Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
       );
@@ -195,84 +217,73 @@ export default function HomePage() {
 
       setTimeout(() => setCoinBurst(false), 1200);
     } else {
-      triggerHaptic('error');
+      triggerHaptic("error");
 
-      setDailyMessage(result.message || 'Already claimed!');
+      setDailyMessage(result.message || "Already claimed!");
+
       await checkDailyCooldown();
     }
 
     setDailyClaiming(false);
-    setTimeout(() => setDailyMessage(''), 3000);
+
+    setTimeout(() => setDailyMessage(""), 3000);
   }
 
   return (
-    <div className="px-4 pb-28 text-white relative overflow-hidden">
+    <div className="px-4 pb-28 text-white">
 
       {/* BALANCE */}
-      <div
-        className="rounded-3xl p-6 mb-6 text-center relative"
-        style={{
-          background: 'linear-gradient(145deg,#0f172a,#1e293b)',
-          border: '1px solid rgba(255,255,255,0.08)'
-        }}
-      >
+      <div className="rounded-3xl p-6 mb-6 text-center bg-slate-800">
+
         {coinBurst && (
-          <div className="absolute inset-0 flex items-center justify-center text-4xl animate-bounce">
-            💰
-          </div>
+          <div className="text-4xl animate-bounce">💰</div>
         )}
 
-        <div className="text-xs text-gray-400 mb-2">Total Balance</div>
+        <div className="text-xs text-gray-400">Total Balance</div>
 
         <div className="text-5xl font-black text-yellow-400">
           <AnimatedNumber value={balance?.points || 0} />
         </div>
 
-        <div className="text-sm text-gray-400 mt-2">
-          Available Points
-        </div>
+        <div className="text-sm text-gray-400">Available Points</div>
+
       </div>
 
-      {/* ADSGRAM AD */}
+      {/* ADSGRAM */}
       <button
         onClick={async () => {
-          triggerHaptic('impact');
+          triggerHaptic("impact");
+
           setAdLoading(true);
+
           await showAd();
+
           setAdLoading(false);
         }}
-        disabled={adLoading}
-        className="w-full rounded-3xl p-6 mb-6 font-bold text-lg"
-        style={{
-          background: 'linear-gradient(135deg,#facc15,#f97316)',
-          color: '#111'
-        }}
+        className="w-full rounded-3xl p-6 mb-6 font-bold text-lg bg-yellow-400 text-black"
       >
         🎬 WATCH & EARN +50
       </button>
 
-      {/* POPUP AD */}
+      {/* ADSTERRA POPUNDER */}
       <button
-        onClick={handlePopupAd}
-        className="w-full rounded-3xl p-6 mb-6 font-bold text-lg"
-        style={{
-          background: 'linear-gradient(135deg,#38bdf8,#6366f1)',
-          color: '#fff'
-        }}
+        onClick={handlePopunderReward}
+        className="w-full rounded-3xl p-6 mb-6 font-bold text-lg bg-blue-500"
       >
-        📺 WATCH POPUP AD +30
+        📺 WATCH ADSTERRA AD +30
       </button>
 
+      {/* ADSTERRA NATIVE BANNER */}
+      <div className="my-6">
+        <div id="container-1b89685908e0ae9bf3327082f3d0a363"></div>
+      </div>
+
       {/* DAILY REWARD */}
-      <div
-        className="rounded-2xl p-5 mb-6 flex items-center justify-between"
-        style={{
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.1)'
-        }}
-      >
+      <div className="p-5 mb-6 flex justify-between bg-slate-800 rounded-2xl">
+
         <div>
           <div className="font-bold">Daily Reward</div>
+
           <div className="text-xs text-gray-400">
             {dailyMessage ||
               (dailyCooldown > 0
@@ -283,66 +294,45 @@ export default function HomePage() {
 
         <button
           onClick={handleDailyClaim}
-          disabled={dailyClaiming || dailyCooldown > 0}
-          className="px-5 py-2 rounded-xl font-bold"
-          style={{
-            background:
-              dailyCooldown > 0
-                ? '#374151'
-                : 'linear-gradient(135deg,#22c55e,#16a34a)',
-            color: 'white'
-          }}
+          disabled={dailyCooldown > 0}
+          className="px-5 py-2 bg-green-500 rounded-xl font-bold"
         >
-          {dailyCooldown > 0 ? 'Locked' : 'Claim'}
+          {dailyCooldown > 0 ? "Locked" : "Claim"}
         </button>
+
       </div>
 
       {/* TRANSACTIONS */}
       <div>
+
         <div className="text-xs text-gray-400 mb-3">
           Recent Activity
         </div>
 
-        {transactions.length === 0 ? (
-          <div className="text-center text-gray-500 py-6">
-            No activity yet 🚀
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {transactions.slice(0, 5).map(tx => (
-              <div
-                key={tx.id}
-                className="p-4 rounded-2xl"
-                style={{
-                  background: 'linear-gradient(145deg,#0f172a,#1e293b)',
-                  border: '1px solid rgba(255,255,255,0.08)'
-                }}
-              >
-                <div className="flex justify-between">
-                  <div>
-                    <div className="font-semibold">
-                      {tx.description || tx.type}
-                    </div>
-
-                    <div className="text-xs text-gray-400">
-                      {new Date(tx.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-
-                  <div
-                    className="font-bold"
-                    style={{
-                      color: tx.points >= 0 ? '#22c55e' : '#ef4444'
-                    }}
-                  >
-                    {tx.points >= 0 ? '+' : ''}
-                    {tx.points.toLocaleString()} pts
-                  </div>
-                </div>
+        {transactions.slice(0, 5).map((tx) => (
+          <div
+            key={tx.id}
+            className="p-4 mb-3 rounded-xl bg-slate-800 flex justify-between"
+          >
+            <div>
+              <div>{tx.description || tx.type}</div>
+              <div className="text-xs text-gray-400">
+                {new Date(tx.created_at).toLocaleDateString()}
               </div>
-            ))}
+            </div>
+
+            <div
+              className="font-bold"
+              style={{
+                color: tx.points >= 0 ? "#22c55e" : "#ef4444",
+              }}
+            >
+              {tx.points >= 0 ? "+" : ""}
+              {tx.points} pts
+            </div>
           </div>
-        )}
+        ))}
+
       </div>
 
     </div>

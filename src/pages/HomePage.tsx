@@ -74,6 +74,37 @@ export default function HomePage() {
   const [coinBurst,setCoinBurst] = useState(false);
 
   /* ===============================
+     BANNER AD REF
+  =================================*/
+  const adRef = useRef(null);
+
+  useEffect(() => {
+
+    if (!adRef.current) return;
+
+    const configScript = document.createElement("script");
+    configScript.type = "text/javascript";
+    configScript.innerHTML = `
+      atOptions = {
+        'key' : '51ed0e5213d1e44096de5736dd56a99e',
+        'format' : 'iframe',
+        'height' : 50,
+        'width' : 320,
+        'params' : {}
+      };
+    `;
+
+    const invokeScript = document.createElement("script");
+    invokeScript.type = "text/javascript";
+    invokeScript.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
+    invokeScript.async = true;
+
+    adRef.current.appendChild(configScript);
+    adRef.current.appendChild(invokeScript);
+
+  }, []);
+
+  /* ===============================
      ADSGRAM REWARDED
   =================================*/
   const onAdReward = useCallback(async ()=>{
@@ -113,7 +144,6 @@ export default function HomePage() {
 
   /* ===============================
      SPONSOR VISIT REWARD
-     (NOT counted as ad)
   =================================*/
   async function rewardVisit(){
 
@@ -142,9 +172,6 @@ export default function HomePage() {
     setTimeout(()=>setDailyMessage(""),3000);
   }
 
-  /* ===============================
-     VISIT AD 1
-  =================================*/
   async function openVisitAd1(){
 
     if(!user || visitCooldown>0) return;
@@ -175,9 +202,6 @@ export default function HomePage() {
     document.addEventListener("visibilitychange",handleVisibility);
   }
 
-  /* ===============================
-     VISIT AD 2
-  =================================*/
   async function openVisitAd2(){
 
     if(!user || visitCooldown>0) return;
@@ -218,18 +242,6 @@ export default function HomePage() {
     checkDailyCooldown();
 
   },[user]);
-
-  useEffect(()=>{
-
-    if(dailyCooldown<=0) return;
-
-    const interval = setInterval(()=>{
-      setDailyCooldown(prev => prev<=1 ? 0 : prev-1);
-    },1000);
-
-    return ()=>clearInterval(interval);
-
-  },[dailyCooldown]);
 
   async function checkDailyCooldown(){
 
@@ -323,6 +335,16 @@ export default function HomePage() {
 
       </div>
 
+      {/* BANNER AD */}
+      <div
+        ref={adRef}
+        style={{
+          display:"flex",
+          justifyContent:"center",
+          marginBottom:"16px"
+        }}
+      />
+
       {/* ADSGRAM */}
       <button
         onClick={async ()=>{
@@ -358,27 +380,6 @@ export default function HomePage() {
           className="px-5 py-2 bg-green-500 rounded-xl font-bold"
         >
           {dailyCooldown>0 ? "Locked" : "Claim"}
-        </button>
-
-      </div>
-
-      {/* SPONSOR VISITS */}
-      <div className="space-y-4 mb-6">
-
-        <button
-          onClick={openVisitAd1}
-          disabled={visitCooldown>0}
-          className="w-full rounded-3xl p-5 font-bold text-lg bg-blue-500"
-        >
-          {visitCooldown>0 ? `Wait ${visitCooldown}s` : "🌐 Visit Sponsor +5"}
-        </button>
-
-        <button
-          onClick={openVisitAd2}
-          disabled={visitCooldown>0}
-          className="w-full rounded-3xl p-5 font-bold text-lg bg-purple-500"
-        >
-          {visitCooldown>0 ? `Wait ${visitCooldown}s` : "🚀 View Offer +5"}
         </button>
 
       </div>

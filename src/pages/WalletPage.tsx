@@ -68,6 +68,7 @@ export default function WalletPage() {
   const [adCount, setAdCount] = useState<number>(0);
   const [adCountLoading, setAdCountLoading] = useState(true);
 
+  /* BANNER REF */
   const bannerAdRef = useRef<HTMLDivElement | null>(null);
 
   const availablePoints = balance?.points || 0;
@@ -79,11 +80,13 @@ export default function WalletPage() {
       getWithdrawals(user.id).then(w => setWithdrawals(w));
 
       const todayUTC = new Date();
-      const startOfDay = new Date(Date.UTC(
-        todayUTC.getUTCFullYear(),
-        todayUTC.getUTCMonth(),
-        todayUTC.getUTCDate()
-      )).toISOString();
+      const startOfDay = new Date(
+        Date.UTC(
+          todayUTC.getUTCFullYear(),
+          todayUTC.getUTCMonth(),
+          todayUTC.getUTCDate()
+        )
+      ).toISOString();
 
       supabase
         .from('ad_logs')
@@ -113,7 +116,8 @@ export default function WalletPage() {
     `;
 
     const script = document.createElement("script");
-    script.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
+    script.src =
+      "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
     script.async = true;
 
     bannerAdRef.current.appendChild(config);
@@ -196,7 +200,7 @@ export default function WalletPage() {
         <p className="text-xs text-gray-400">Withdraw your earnings</p>
       </div>
 
-      {/* BALANCE CARD */}
+      {/* PREMIUM 3D BALANCE CARD */}
       <div
         className="rounded-3xl p-6 mb-6 relative overflow-hidden"
         style={{
@@ -229,7 +233,29 @@ export default function WalletPage() {
           border: `1px solid ${withdrawUnlocked ? 'rgba(34,197,94,0.3)' : 'rgba(250,204,21,0.3)'}`,
         }}
       >
-        ...
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{withdrawUnlocked ? '✅' : '🔒'}</span>
+            <span className="text-sm font-bold">
+              {withdrawUnlocked ? 'Withdrawals Unlocked!' : 'Unlock Withdrawals'}
+            </span>
+          </div>
+          <span className="text-xs font-mono">
+            {adCountLoading ? '...' : `${Math.min(adCount, REQUIRED_ADS)}/${REQUIRED_ADS}`}
+          </span>
+        </div>
+
+        <div className="w-full h-2 rounded-full overflow-hidden bg-white/10">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${adProgress * 100}%`,
+              background: withdrawUnlocked
+                ? 'linear-gradient(90deg,#22c55e,#4ade80)'
+                : 'linear-gradient(90deg,#facc15,#f97316)',
+            }}
+          />
+        </div>
       </div>
 
     </div>

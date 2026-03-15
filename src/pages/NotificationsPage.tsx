@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { useApp } from '@/context/AppContext';
 
 /* ===============================
@@ -49,36 +49,7 @@ export default function NotificationsPage() {
 
   const { notifications, markRead } = useApp();
 
-  const bannerAdRef = useRef<HTMLDivElement | null>(null);
-
   const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  /* ===============================
-     BANNER AD LOADER
-  =================================*/
-  useEffect(() => {
-
-    if (!bannerAdRef.current) return;
-
-    const config = document.createElement("script");
-    config.innerHTML = `
-      atOptions = {
-        'key' : '51ed0e5213d1e44096de5736dd56a99e',
-        'format' : 'iframe',
-        'height' : 50,
-        'width' : 320,
-        'params' : {}
-      };
-    `;
-
-    const script = document.createElement("script");
-    script.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
-    script.async = true;
-
-    bannerAdRef.current.appendChild(config);
-    bannerAdRef.current.appendChild(script);
-
-  }, []);
 
   return (
     <div className="px-4 pb-28 text-white">
@@ -98,16 +69,6 @@ export default function NotificationsPage() {
           </div>
         )}
       </div>
-
-      {/* BANNER AD */}
-      <div
-        ref={bannerAdRef}
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          marginBottom: "16px"
-        }}
-      />
 
       {/* EMPTY STATE */}
       {notifications.length === 0 ? (

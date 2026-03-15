@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 
 /* ===============================
@@ -46,9 +46,39 @@ function timeAgo(date: string) {
 }
 
 export default function NotificationsPage() {
+
   const { notifications, markRead } = useApp();
 
+  const bannerAdRef = useRef<HTMLDivElement | null>(null);
+
   const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  /* ===============================
+     BANNER AD LOADER
+  =================================*/
+  useEffect(() => {
+
+    if (!bannerAdRef.current) return;
+
+    const config = document.createElement("script");
+    config.innerHTML = `
+      atOptions = {
+        'key' : '51ed0e5213d1e44096de5736dd56a99e',
+        'format' : 'iframe',
+        'height' : 50,
+        'width' : 320,
+        'params' : {}
+      };
+    `;
+
+    const script = document.createElement("script");
+    script.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
+    script.async = true;
+
+    bannerAdRef.current.appendChild(config);
+    bannerAdRef.current.appendChild(script);
+
+  }, []);
 
   return (
     <div className="px-4 pb-28 text-white">
@@ -68,6 +98,16 @@ export default function NotificationsPage() {
           </div>
         )}
       </div>
+
+      {/* BANNER AD */}
+      <div
+        ref={bannerAdRef}
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          marginBottom: "16px"
+        }}
+      />
 
       {/* EMPTY STATE */}
       {notifications.length === 0 ? (
@@ -102,12 +142,10 @@ export default function NotificationsPage() {
                   border: `1px solid ${
                     n.is_read ? 'rgba(255,255,255,0.05)' : `${color}50`
                   }`,
-                  backdropFilter: 'blur(8px)',
                 }}
               >
                 <div className="flex items-start gap-3">
 
-                  {/* ICON */}
                   <div
                     className="text-xl flex-shrink-0 mt-1"
                     style={{
@@ -119,7 +157,6 @@ export default function NotificationsPage() {
                     {icon}
                   </div>
 
-                  {/* CONTENT */}
                   <div className="flex-1 min-w-0">
 
                     <div className="flex items-center justify-between mb-1">
@@ -143,11 +180,13 @@ export default function NotificationsPage() {
                     <div className="text-[11px] text-gray-500 mt-2">
                       {timeAgo(n.created_at)}
                     </div>
+
                   </div>
                 </div>
               </button>
             );
           })}
+
         </div>
       )}
     </div>

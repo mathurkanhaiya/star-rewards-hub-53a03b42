@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useApp } from "@/context/AppContext";
 import { claimDailyReward, getTransactions, logAdWatch, getDailyClaim } from "@/lib/api";
 import { useRewardedAd } from "@/hooks/useAdsgram";
+import AdsgramTask from "@/components/AdsgramTask";
 
 /* ===============================
    TELEGRAM HAPTIC

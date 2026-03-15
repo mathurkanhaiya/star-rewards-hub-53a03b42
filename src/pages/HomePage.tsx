@@ -77,13 +77,12 @@ export default function HomePage(){
   const [dailyMessage,setDailyMessage] = useState("");
 
   const [transactions,setTransactions] = useState([]);
-
   const [adLoading,setAdLoading] = useState(false);
 
   const [dailyCooldown,setDailyCooldown] = useState(0);
-  const [visitCooldown,setVisitCooldown] = useState(0);
-
   const [coinBurst,setCoinBurst] = useState(false);
+
+  const [activeTab,setActiveTab] = useState<"earn"|"history">("earn");
 
   /* ===============================
      ADSGRAM REWARDED
@@ -108,106 +107,6 @@ export default function HomePage(){
   },[user,refreshBalance]);
 
   const { showAd } = useRewardedAd(onAdReward);
-
-  /* ===============================
-     VISIT COOLDOWN
-  =================================*/
-
-  useEffect(()=>{
-
-    if(visitCooldown <= 0) return;
-
-    const timer = setInterval(()=>{
-      setVisitCooldown(prev => prev <= 1 ? 0 : prev - 1);
-    },1000);
-
-    return ()=>clearInterval(timer);
-
-  },[visitCooldown]);
-
-  /* ===============================
-     SPONSOR REWARD
-  =================================*/
-
-  async function rewardVisit(){
-
-    if(!user) return;
-
-    await fetch("/api/add-points",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({
-        user_id:user.id,
-        points:5,
-        type:"sponsor_visit"
-      })
-    });
-
-    await refreshBalance();
-
-    triggerHaptic("success");
-
-    setCoinBurst(true);
-    setDailyMessage("+5 pts sponsor visit 🎯");
-
-    setTimeout(()=>setCoinBurst(false),1200);
-    setTimeout(()=>setDailyMessage(""),3000);
-
-  }
-
-  async function openVisitAd1(){
-
-    if(!user || visitCooldown>0) return;
-
-    setVisitCooldown(5);
-
-    const start = Date.now();
-
-    window.open("https://www.effectivegatecpm.com/d798i310?key=c517fe2242432b0ae5dc4b6d916f81ff","_blank");
-
-    const handleVisibility = async ()=>{
-
-      if(document.visibilityState === "visible"){
-
-        const stay = Date.now() - start;
-
-        if(stay > 5000){
-          await rewardVisit();
-        }
-
-        document.removeEventListener("visibilitychange",handleVisibility);
-      }
-    };
-
-    document.addEventListener("visibilitychange",handleVisibility);
-  }
-
-  async function openVisitAd2(){
-
-    if(!user || visitCooldown>0) return;
-
-    setVisitCooldown(5);
-
-    const start = Date.now();
-
-    window.open("https://www.effectivegatecpm.com/fyuxhh2b8y?key=1901eea23f0fed88cecae79fc3ffd1fd","_blank");
-
-    const handleVisibility = async ()=>{
-
-      if(document.visibilityState === "visible"){
-
-        const stay = Date.now() - start;
-
-        if(stay > 5000){
-          await rewardVisit();
-        }
-
-        document.removeEventListener("visibilitychange",handleVisibility);
-      }
-    };
-
-    document.addEventListener("visibilitychange",handleVisibility);
-  }
 
   /* ===============================
      LOAD DATA
@@ -236,7 +135,8 @@ export default function HomePage(){
         Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1)
       );
 
-      const remaining = Math.max(0,
+      const remaining = Math.max(
+        0,
         Math.floor((midnightUTC.getTime() - now.getTime())/1000)
       );
 
@@ -267,7 +167,9 @@ export default function HomePage(){
         Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1)
       );
 
-      setDailyCooldown(Math.floor((midnightUTC.getTime()-now.getTime())/1000));
+      setDailyCooldown(
+        Math.floor((midnightUTC.getTime()-now.getTime())/1000)
+      );
 
       await refreshBalance();
 
@@ -355,27 +257,81 @@ className="px-5 py-2 bg-green-500 rounded-xl font-bold"
 
 </div>
 
-{/* SPONSOR OFFERS */}
+{/* TASK TABS */}
 
-<div className="space-y-4">
+<div className="flex mb-4 bg-slate-900 rounded-xl p-1">
 
 <button
-onClick={openVisitAd1}
-disabled={visitCooldown>0}
-className="w-full rounded-3xl p-5 font-bold text-lg bg-blue-600"
+onClick={()=>setActiveTab("earn")}
+className={`flex-1 py-2 rounded-lg font-bold ${
+activeTab==="earn"
+? "bg-yellow-400 text-black"
+: "text-gray-400"
+}`}
 >
-{visitCooldown>0 ? `Wait ${visitCooldown}s` : "🌐 Visit Sponsor +5"}
+Earn
 </button>
 
 <button
-onClick={openVisitAd2}
-disabled={visitCooldown>0}
-className="w-full rounded-3xl p-5 font-bold text-lg bg-purple-600"
+onClick={()=>setActiveTab("history")}
+className={`flex-1 py-2 rounded-lg font-bold ${
+activeTab==="history"
+? "bg-yellow-400 text-black"
+: "text-gray-400"
+}`}
 >
-{visitCooldown>0 ? `Wait ${visitCooldown}s` : "🚀 View Offer +5"}
+History
 </button>
 
 </div>
+
+{/* EARN TAB */}
+
+{activeTab==="earn" && (
+
+<div className="space-y-4 mb-6">
+
+<AdsgramTask reward={15}/>
+<AdsgramTask reward={15}/>
+<AdsgramTask reward={20}/>
+<AdsgramTask reward={20}/>
+<AdsgramTask reward={25}/>
+<AdsgramTask reward={25}/>
+
+</div>
+
+)}
+
+{/* HISTORY TAB */}
+
+{activeTab==="history" && (
+
+<div className="space-y-3">
+
+{transactions.length===0 && (
+<div className="text-gray-400 text-center">
+No transactions yet
+</div>
+)}
+
+{transactions.map((t:any)=>(
+<div
+key={t.id}
+className="p-4 rounded-xl bg-slate-800 flex justify-between"
+>
+
+<div className="text-sm">{t.type}</div>
+
+<div className="text-yellow-400 font-bold">
++{t.points}
+</div>
+
+</div>
+))}
+
+</div>
+
+)}
 
 </div>
 

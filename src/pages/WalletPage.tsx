@@ -123,7 +123,7 @@ export default function WalletPage() {
 
     if (selectedMethod !== 'stars' && !wallet.trim()) {
       triggerHaptic('error');
-      setMessage('Enter wallet address');
+      setMessage('Enter TON address');
       return;
     }
 

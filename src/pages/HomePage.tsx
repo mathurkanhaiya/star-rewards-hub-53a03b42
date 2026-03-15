@@ -74,37 +74,6 @@ export default function HomePage() {
   const [coinBurst,setCoinBurst] = useState(false);
 
   /* ===============================
-     BANNER AD REF
-  =================================*/
-  const adRef = useRef(null);
-
-  useEffect(() => {
-
-    if (!adRef.current) return;
-
-    const configScript = document.createElement("script");
-    configScript.type = "text/javascript";
-    configScript.innerHTML = `
-      atOptions = {
-        'key' : '51ed0e5213d1e44096de5736dd56a99e',
-        'format' : 'iframe',
-        'height' : 50,
-        'width' : 320,
-        'params' : {}
-      };
-    `;
-
-    const invokeScript = document.createElement("script");
-    invokeScript.type = "text/javascript";
-    invokeScript.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
-    invokeScript.async = true;
-
-    adRef.current.appendChild(configScript);
-    adRef.current.appendChild(invokeScript);
-
-  }, []);
-
-  /* ===============================
      ADSGRAM REWARDED
   =================================*/
   const onAdReward = useCallback(async ()=>{
@@ -335,16 +304,6 @@ export default function HomePage() {
 
       </div>
 
-      {/* BANNER AD */}
-      <div
-        ref={adRef}
-        style={{
-          display:"flex",
-          justifyContent:"center",
-          marginBottom:"16px"
-        }}
-      />
-
       {/* ADSGRAM */}
       <button
         onClick={async ()=>{
@@ -360,52 +319,51 @@ export default function HomePage() {
       </button>
 
       {/* DAILY REWARD */}
-<div className="p-5 mb-6 flex justify-between bg-slate-800 rounded-2xl">
+      <div className="p-5 mb-6 flex justify-between bg-slate-800 rounded-2xl">
 
-  <div>
-    <div className="font-bold">Daily Reward</div>
+        <div>
+          <div className="font-bold">Daily Reward</div>
 
-    <div className="text-xs text-gray-400">
-      {dailyMessage ||
-        (dailyCooldown>0
-          ? `⏳ ${formatCountdown(dailyCooldown)}`
-          : `+${settings?.daily_bonus_base || 100} pts`)
-      }
+          <div className="text-xs text-gray-400">
+            {dailyMessage ||
+              (dailyCooldown>0
+                ? `⏳ ${formatCountdown(dailyCooldown)}`
+                : `+${settings?.daily_bonus_base || 100} pts`)
+            }
+          </div>
+        </div>
+
+        <button
+          onClick={handleDailyClaim}
+          disabled={dailyClaiming || dailyCooldown>0}
+          className="px-5 py-2 bg-green-500 rounded-xl font-bold"
+        >
+          {dailyCooldown>0 ? "Locked" : "Claim"}
+        </button>
+
+      </div>
+
+      {/* SPONSOR OFFERS */}
+      <div className="space-y-4 mb-6">
+
+        <button
+          onClick={openVisitAd1}
+          disabled={visitCooldown > 0}
+          className="w-full rounded-3xl p-5 font-bold text-lg bg-blue-500"
+        >
+          {visitCooldown > 0 ? `Wait ${visitCooldown}s` : "🌐 Visit Sponsor +5"}
+        </button>
+
+        <button
+          onClick={openVisitAd2}
+          disabled={visitCooldown > 0}
+          className="w-full rounded-3xl p-5 font-bold text-lg bg-purple-500"
+        >
+          {visitCooldown > 0 ? `Wait ${visitCooldown}s` : "🚀 View Offer +5"}
+        </button>
+
+      </div>
+
     </div>
-  </div>
-
-  <button
-    onClick={handleDailyClaim}
-    disabled={dailyClaiming || dailyCooldown>0}
-    className="px-5 py-2 bg-green-500 rounded-xl font-bold"
-  >
-    {dailyCooldown>0 ? "Locked" : "Claim"}
-  </button>
-
-</div>
-
-
-{/* SPONSOR OFFERS */}
-<div className="space-y-4 mb-6">
-
-  <button
-    onClick={openVisitAd1}
-    disabled={visitCooldown > 0}
-    className="w-full rounded-3xl p-5 font-bold text-lg bg-blue-500"
-  >
-    {visitCooldown > 0 ? `Wait ${visitCooldown}s` : "🌐 Visit Sponsor +5"}
-  </button>
-
-  <button
-    onClick={openVisitAd2}
-    disabled={visitCooldown > 0}
-    className="w-full rounded-3xl p-5 font-bold text-lg bg-purple-500"
-  >
-    {visitCooldown > 0 ? `Wait ${visitCooldown}s` : "🚀 View Offer +5"}
-  </button>
-
-</div>
-
-</div>
-);
+  );
 }

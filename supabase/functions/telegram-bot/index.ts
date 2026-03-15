@@ -1,8 +1,13 @@
-import { serve } from "https://deno.land/std/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const BOT_TOKEN = Deno.env.get("BOT_TOKEN")
 
 serve(async (req) => {
+
+  if (!BOT_TOKEN) {
+    console.error("BOT_TOKEN not set")
+    return new Response("Bot token missing")
+  }
 
   const update = await req.json()
 

@@ -46,16 +46,19 @@ function AnimatedNumber({ value }: { value: number }) {
     const timer = setInterval(() => {
       step++;
       start += increment;
+
       if (step >= steps) {
         setDisplay(value);
         clearInterval(timer);
       } else {
         setDisplay(Math.floor(start));
       }
+
     }, duration / steps);
 
     previous.current = value;
     return () => clearInterval(timer);
+
   }, [value]);
 
   return <>{display.toLocaleString()}</>;
@@ -68,35 +71,6 @@ export default function ReferralPage() {
   const [referrals, setReferrals] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
 
-  /* ===============================
-     BANNER AD REF
-  =================================*/
-  const bannerAdRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-
-    if (!bannerAdRef.current) return;
-
-    const config = document.createElement("script");
-    config.innerHTML = `
-      atOptions = {
-        'key' : '51ed0e5213d1e44096de5736dd56a99e',
-        'format' : 'iframe',
-        'height' : 50,
-        'width' : 320,
-        'params' : {}
-      };
-    `;
-
-    const script = document.createElement("script");
-    script.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
-    script.async = true;
-
-    bannerAdRef.current.appendChild(config);
-    bannerAdRef.current.appendChild(script);
-
-  }, []);
-
   useEffect(() => {
     if (user) {
       getReferrals(user.id).then(r => setReferrals(r || []));
@@ -108,12 +82,16 @@ export default function ReferralPage() {
     : '';
 
   function handleCopy() {
+
     if (!referralLink) return;
 
     navigator.clipboard.writeText(referralLink).then(() => {
+
       setCopied(true);
       triggerHaptic('success');
+
       setTimeout(() => setCopied(false), 2000);
+
     });
   }
 
@@ -159,7 +137,10 @@ export default function ReferralPage() {
           border: '1px solid rgba(250,204,21,0.2)'
         }}
       >
-        <div className="text-sm text-gray-400 mb-2">Total Earned</div>
+
+        <div className="text-sm text-gray-400 mb-2">
+          Total Earned
+        </div>
 
         <div className="text-3xl font-bold text-yellow-400">
           <AnimatedNumber value={totalEarned} /> pts
@@ -168,6 +149,7 @@ export default function ReferralPage() {
         <div className="text-xs text-gray-500 mt-1">
           {verified} verified friends
         </div>
+
       </div>
 
       {/* STATS */}
@@ -227,16 +209,6 @@ export default function ReferralPage() {
 
       </div>
 
-      {/* 320x50 BANNER */}
-      <div
-        ref={bannerAdRef}
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          marginBottom: "20px"
-        }}
-      />
-
       {/* REFERRAL LIST */}
       <div>
 
@@ -262,6 +234,7 @@ export default function ReferralPage() {
               >
 
                 <div>
+
                   <div className="text-sm font-medium">
                     Friend #{ref.referred_id?.slice(0,6)}
                   </div>
@@ -269,6 +242,7 @@ export default function ReferralPage() {
                   <div className="text-xs text-gray-500">
                     {timeAgo(ref.created_at)}
                   </div>
+
                 </div>
 
                 <div className="text-yellow-400 font-bold">

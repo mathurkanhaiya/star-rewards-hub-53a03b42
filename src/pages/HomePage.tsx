@@ -6,9 +6,9 @@ import { useRewardedAd } from "@/hooks/useAdsgram";
 /* ===============================
    TELEGRAM HAPTIC
 ================================ */
-function triggerHaptic(type) {
-  if (typeof window !== "undefined" && window.Telegram) {
-    const tg = window.Telegram.WebApp;
+function triggerHaptic(type:any) {
+  if (typeof window !== "undefined" && (window as any).Telegram) {
+    const tg = (window as any).Telegram.WebApp;
 
     if (tg?.HapticFeedback) {
       if (type === "impact") tg.HapticFeedback.impactOccurred("medium");
@@ -21,61 +21,73 @@ function triggerHaptic(type) {
 /* ===============================
    Animated Balance
 ================================ */
-function AnimatedNumber({ value }) {
-  const [display, setDisplay] = useState(value);
+function AnimatedNumber({ value }:any) {
+
+  const [display,setDisplay] = useState(value);
   const prev = useRef(value);
 
-  useEffect(() => {
+  useEffect(()=>{
+
     let start = prev.current;
     const diff = value - start;
+
     const steps = 30;
     const inc = diff / steps;
+
     let step = 0;
 
-    const timer = setInterval(() => {
+    const timer = setInterval(()=>{
+
       step++;
       start += inc;
 
-      if (step >= steps) {
+      if(step >= steps){
         setDisplay(value);
         clearInterval(timer);
-      } else {
+      }else{
         setDisplay(Math.floor(start));
       }
-    }, 20);
+
+    },20);
 
     prev.current = value;
-    return () => clearInterval(timer);
-  }, [value]);
+
+    return ()=>clearInterval(timer);
+
+  },[value]);
 
   return <>{display.toLocaleString()}</>;
 }
 
-function formatCountdown(seconds) {
+function formatCountdown(seconds:number){
+
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
 
-  return `${h.toString().padStart(2,"0")}:${m
-    .toString()
-    .padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
+  return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
 }
 
-export default function HomePage() {
+export default function HomePage(){
 
   const { user, balance, settings, refreshBalance } = useApp();
 
   const [dailyClaiming,setDailyClaiming] = useState(false);
   const [dailyMessage,setDailyMessage] = useState("");
+
   const [transactions,setTransactions] = useState([]);
+
   const [adLoading,setAdLoading] = useState(false);
+
   const [dailyCooldown,setDailyCooldown] = useState(0);
   const [visitCooldown,setVisitCooldown] = useState(0);
+
   const [coinBurst,setCoinBurst] = useState(false);
 
   /* ===============================
      ADSGRAM REWARDED
   =================================*/
+
   const onAdReward = useCallback(async ()=>{
 
     if(!user) return;
@@ -97,14 +109,15 @@ export default function HomePage() {
   const { showAd } = useRewardedAd(onAdReward);
 
   /* ===============================
-     VISIT COOLDOWN TIMER
+     VISIT COOLDOWN
   =================================*/
+
   useEffect(()=>{
 
-    if(visitCooldown<=0) return;
+    if(visitCooldown <= 0) return;
 
     const timer = setInterval(()=>{
-      setVisitCooldown(prev => prev<=1 ? 0 : prev-1);
+      setVisitCooldown(prev => prev <= 1 ? 0 : prev - 1);
     },1000);
 
     return ()=>clearInterval(timer);
@@ -112,17 +125,16 @@ export default function HomePage() {
   },[visitCooldown]);
 
   /* ===============================
-     SPONSOR VISIT REWARD
+     SPONSOR REWARD
   =================================*/
+
   async function rewardVisit(){
 
     if(!user) return;
 
     await fetch("/api/add-points",{
       method:"POST",
-      headers:{
-        "Content-Type":"application/json"
-      },
+      headers:{ "Content-Type":"application/json" },
       body:JSON.stringify({
         user_id:user.id,
         points:5,
@@ -139,6 +151,7 @@ export default function HomePage() {
 
     setTimeout(()=>setCoinBurst(false),1200);
     setTimeout(()=>setDailyMessage(""),3000);
+
   }
 
   async function openVisitAd1(){
@@ -149,14 +162,11 @@ export default function HomePage() {
 
     const start = Date.now();
 
-    window.open(
-      "https://www.effectivegatecpm.com/d798i310?key=c517fe2242432b0ae5dc4b6d916f81ff",
-      "_blank"
-    );
+    window.open("https://www.effectivegatecpm.com/d798i310?key=c517fe2242432b0ae5dc4b6d916f81ff","_blank");
 
     const handleVisibility = async ()=>{
 
-      if(document.visibilityState==="visible"){
+      if(document.visibilityState === "visible"){
 
         const stay = Date.now() - start;
 
@@ -179,14 +189,11 @@ export default function HomePage() {
 
     const start = Date.now();
 
-    window.open(
-      "https://www.effectivegatecpm.com/fyuxhh2b8y?key=1901eea23f0fed88cecae79fc3ffd1fd",
-      "_blank"
-    );
+    window.open("https://www.effectivegatecpm.com/fyuxhh2b8y?key=1901eea23f0fed88cecae79fc3ffd1fd","_blank");
 
     const handleVisibility = async ()=>{
 
-      if(document.visibilityState==="visible"){
+      if(document.visibilityState === "visible"){
 
         const stay = Date.now() - start;
 
@@ -204,7 +211,9 @@ export default function HomePage() {
   /* ===============================
      LOAD DATA
   =================================*/
+
   useEffect(()=>{
+
     if(!user) return;
 
     getTransactions(user.id).then(setTransactions);
@@ -226,8 +235,7 @@ export default function HomePage() {
         Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1)
       );
 
-      const remaining = Math.max(
-        0,
+      const remaining = Math.max(0,
         Math.floor((midnightUTC.getTime() - now.getTime())/1000)
       );
 
@@ -258,20 +266,18 @@ export default function HomePage() {
         Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1)
       );
 
-      setDailyCooldown(
-        Math.floor((midnightUTC.getTime() - now.getTime())/1000)
-      );
+      setDailyCooldown(Math.floor((midnightUTC.getTime()-now.getTime())/1000));
 
       await refreshBalance();
 
       setTimeout(()=>setCoinBurst(false),1200);
 
-    } else {
+    }else{
 
       triggerHaptic("error");
-
       setDailyMessage(result.message || "Already claimed!");
       await checkDailyCooldown();
+
     }
 
     setDailyClaiming(false);
@@ -281,89 +287,96 @@ export default function HomePage() {
 
   return(
 
-    <div className="px-4 pb-28 text-white">
+<div className="px-4 pb-28 text-white">
 
-      {/* BALANCE */}
-      <div className="rounded-3xl p-6 mb-6 text-center bg-slate-800">
+{/* BALANCE CARD */}
 
-        {coinBurst && (
-          <div className="text-4xl animate-bounce">💰</div>
-        )}
+<div className="rounded-3xl p-6 mb-6 text-center bg-gradient-to-br from-slate-900 to-slate-800 border border-yellow-400/20">
 
-        <div className="text-xs text-gray-400 mb-2">
-          Total Balance
-        </div>
+{coinBurst && <div className="text-4xl animate-bounce">💰</div>}
 
-        <div className="text-5xl font-black text-yellow-400">
-          <AnimatedNumber value={balance?.points || 0}/>
-        </div>
+<div className="text-xs text-gray-400 mb-1">Total Balance</div>
 
-        <div className="text-sm text-gray-400 mt-2">
-          Available Points
-        </div>
+<div className="text-5xl font-black text-yellow-400">
+<AnimatedNumber value={balance?.points || 0}/>
+</div>
 
-      </div>
+<div className="text-xs text-gray-500 mt-1">Available Points</div>
 
-      {/* ADSGRAM */}
-      <button
-        onClick={async ()=>{
-          triggerHaptic("impact");
-          setAdLoading(true);
-          await showAd();
-          setAdLoading(false);
-        }}
-        disabled={adLoading}
-        className="w-full rounded-3xl p-6 mb-6 font-bold text-lg bg-yellow-400 text-black"
-      >
-        🎬 WATCH & EARN +50
-      </button>
+</div>
 
-      {/* DAILY REWARD */}
-      <div className="p-5 mb-6 flex justify-between bg-slate-800 rounded-2xl">
+{/* WATCH AD */}
 
-        <div>
-          <div className="font-bold">Daily Reward</div>
+<button
+onClick={async()=>{
+triggerHaptic("impact");
+setAdLoading(true);
+await showAd();
+setAdLoading(false);
+}}
+disabled={adLoading}
+className="w-full rounded-3xl p-6 mb-6 font-bold text-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg active:scale-95"
+>
 
-          <div className="text-xs text-gray-400">
-            {dailyMessage ||
-              (dailyCooldown>0
-                ? `⏳ ${formatCountdown(dailyCooldown)}`
-                : `+${settings?.daily_bonus_base || 100} pts`)
-            }
-          </div>
-        </div>
+{adLoading ? "Loading Ad..." : "🎬 Watch Ad & Earn +50"}
 
-        <button
-          onClick={handleDailyClaim}
-          disabled={dailyClaiming || dailyCooldown>0}
-          className="px-5 py-2 bg-green-500 rounded-xl font-bold"
-        >
-          {dailyCooldown>0 ? "Locked" : "Claim"}
-        </button>
+</button>
 
-      </div>
+{/* DAILY REWARD */}
 
-      {/* SPONSOR OFFERS */}
-      <div className="space-y-4 mb-6">
+<div className="p-5 mb-6 flex justify-between bg-slate-800 rounded-2xl">
 
-        <button
-          onClick={openVisitAd1}
-          disabled={visitCooldown > 0}
-          className="w-full rounded-3xl p-5 font-bold text-lg bg-blue-500"
-        >
-          {visitCooldown > 0 ? `Wait ${visitCooldown}s` : "🌐 Visit Sponsor +5"}
-        </button>
+<div>
 
-        <button
-          onClick={openVisitAd2}
-          disabled={visitCooldown > 0}
-          className="w-full rounded-3xl p-5 font-bold text-lg bg-purple-500"
-        >
-          {visitCooldown > 0 ? `Wait ${visitCooldown}s` : "🚀 View Offer +5"}
-        </button>
+<div className="font-bold">🎁 Daily Reward</div>
 
-      </div>
+<div className="text-xs text-gray-400">
 
-    </div>
-  );
+{dailyMessage ||
+(dailyCooldown>0
+? `⏳ ${formatCountdown(dailyCooldown)}`
+: `+${settings?.daily_bonus_base || 100} pts`)
+}
+
+</div>
+
+</div>
+
+<button
+onClick={handleDailyClaim}
+disabled={dailyClaiming || dailyCooldown>0}
+className="px-5 py-2 bg-green-500 rounded-xl font-bold"
+>
+
+{dailyCooldown>0 ? "Locked" : "Claim"}
+
+</button>
+
+</div>
+
+{/* SPONSOR OFFERS */}
+
+<div className="space-y-4">
+
+<button
+onClick={openVisitAd1}
+disabled={visitCooldown>0}
+className="w-full rounded-3xl p-5 font-bold text-lg bg-blue-600"
+>
+{visitCooldown>0 ? `Wait ${visitCooldown}s` : "🌐 Visit Sponsor +5"}
+</button>
+
+<button
+onClick={openVisitAd2}
+disabled={visitCooldown>0}
+className="w-full rounded-3xl p-5 font-bold text-lg bg-purple-600"
+>
+{visitCooldown>0 ? `Wait ${visitCooldown}s` : "🚀 View Offer +5"}
+</button>
+
+</div>
+
+</div>
+
+);
 }

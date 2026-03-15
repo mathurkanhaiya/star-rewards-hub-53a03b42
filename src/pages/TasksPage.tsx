@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { getTasks, getUserTasks, completeTask } from '@/lib/api';
 import { Task } from '@/types/telegram';
@@ -35,53 +35,6 @@ export default function TasksPage() {
   const [message, setMessage] = useState<{ id: string; text: string; success: boolean } | null>(null);
   const [filter, setFilter] = useState<string>('all');
 
-  /* ===============================
-     AD REFS
-  =================================*/
-  const nativeAdRef = useRef<HTMLDivElement | null>(null);
-  const bannerAdRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-
-  /* -------- Native Ad -------- */
-  if (nativeAdRef.current) {
-
-    const container = document.createElement("div");
-    container.id = "container-1b89685908e0ae9bf3327082f3d0a363";
-
-    const script = document.createElement("script");
-    script.src = "https://pl28904350.effectivegatecpm.com/1b89685908e0ae9bf3327082f3d0a363/invoke.js";
-    script.async = true;
-    script.setAttribute("data-cfasync", "false");
-
-    nativeAdRef.current.appendChild(script);
-    nativeAdRef.current.appendChild(container);
-  }
-
-  /* -------- 320x50 Banner -------- */
-  if (bannerAdRef.current) {
-
-    const config = document.createElement("script");
-    config.innerHTML = `
-      atOptions = {
-        'key' : '51ed0e5213d1e44096de5736dd56a99e',
-        'format' : 'iframe',
-        'height' : 50,
-        'width' : 320,
-        'params' : {}
-      };
-    `;
-
-    const script = document.createElement("script");
-    script.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
-    script.async = true;
-
-    bannerAdRef.current.appendChild(config);
-    bannerAdRef.current.appendChild(script);
-  }
-
-}, []);
-
   useEffect(() => {
     loadData();
   }, [user]);
@@ -91,8 +44,13 @@ export default function TasksPage() {
       getTasks(),
       user ? getUserTasks(user.id) : Promise.resolve([]),
     ]);
+
     setTasks(allTasks);
-    const ids = new Set((userTasksList as Array<{ task_id: string }>).map(ut => ut.task_id));
+
+    const ids = new Set(
+      (userTasksList as Array<{ task_id: string }>).map(ut => ut.task_id)
+    );
+
     setCompletedTaskIds(ids);
   }
 
@@ -114,12 +72,24 @@ export default function TasksPage() {
 
     if (result.success) {
       triggerHaptic('success');
-      setMessage({ id: task.id, text: `+${result.points} pts earned! 🎉`, success: true });
+
+      setMessage({
+        id: task.id,
+        text: `+${result.points} pts earned! 🎉`,
+        success: true
+      });
+
       setCompletedTaskIds(prev => new Set([...prev, task.id]));
+
       await refreshBalance();
     } else {
       triggerHaptic('error');
-      setMessage({ id: task.id, text: result.message || 'Task failed', success: false });
+
+      setMessage({
+        id: task.id,
+        text: result.message || 'Task failed',
+        success: false
+      });
     }
 
     setCompleting(null);
@@ -127,7 +97,10 @@ export default function TasksPage() {
   }
 
   const filters = ['all', 'social', 'daily', 'referral', 'video', 'special'];
-  const filtered = filter === 'all' ? tasks : tasks.filter(t => t.task_type === filter);
+  const filtered =
+    filter === 'all'
+      ? tasks
+      : tasks.filter(t => t.task_type === filter);
 
   return (
     <div className="px-4 pb-28 text-white">
@@ -135,33 +108,60 @@ export default function TasksPage() {
       {/* HEADER */}
       <div className="mb-6">
         <h2 className="text-xl font-bold">Tasks</h2>
-        <p className="text-xs text-gray-400">Complete tasks & earn rewards</p>
+        <p className="text-xs text-gray-400">
+          Complete tasks & earn rewards
+        </p>
       </div>
 
-      {/* NATIVE AD */}
-      <div
-        ref={nativeAdRef}
-        style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}
-      />
+      {/* FILTERS */}
+      <div className="flex gap-2 overflow-x-auto pb-3 mb-6">
+        {filters.map(f => (
+          <button
+            key={f}
+            onClick={() => {
+              triggerHaptic();
+              setFilter(f);
+            }}
+            className="px-4 py-2 rounded-xl text-xs font-semibold capitalize"
+            style={{
+              background:
+                filter === f
+                  ? 'linear-gradient(135deg,#facc15,#f97316)'
+                  : '#111827',
+              color: filter === f ? '#111' : '#9ca3af',
+            }}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
 
       {/* TASK LIST */}
       <div className="space-y-4">
+
         {filtered.map(task => {
-          const isCompleted = completedTaskIds.has(task.id) && !task.is_repeatable;
+
+          const isCompleted =
+            completedTaskIds.has(task.id) && !task.is_repeatable;
+
           const isCompleting = completing === task.id;
-          const color = TASK_COLORS[task.task_type] || '#facc15';
+
+          const color =
+            TASK_COLORS[task.task_type] || '#facc15';
 
           return (
             <div
               key={task.id}
-              className="rounded-3xl p-5 relative overflow-hidden"
+              className="rounded-3xl p-5"
               style={{
-                background: 'linear-gradient(145deg,#0f172a,#1e293b)',
+                background:
+                  'linear-gradient(145deg,#0f172a,#1e293b)',
                 border: `1px solid ${color}40`,
               }}
             >
               <div className="flex items-center gap-4">
 
+                {/* ICON */}
                 <div
                   className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
                   style={{
@@ -172,8 +172,12 @@ export default function TasksPage() {
                   {task.icon || '✨'}
                 </div>
 
+                {/* TEXT */}
                 <div className="flex-1">
-                  <div className="font-semibold text-sm">{task.title}</div>
+
+                  <div className="font-semibold text-sm">
+                    {task.title}
+                  </div>
 
                   <div className="text-xs text-gray-400 mt-1">
                     {task.description}
@@ -182,16 +186,19 @@ export default function TasksPage() {
                   <div className="text-xs text-yellow-400 mt-2 font-bold">
                     +{task.reward_points} pts
                   </div>
+
                 </div>
 
+                {/* BUTTON */}
                 <button
                   disabled={isCompleted || isCompleting}
                   onClick={() => handleComplete(task)}
                   className="px-4 py-2 rounded-xl text-xs font-bold"
                   style={{
-                    background: isCompleted
-                      ? '#1f2937'
-                      : `linear-gradient(135deg, ${color}, ${color}cc)`,
+                    background:
+                      isCompleted
+                        ? '#1f2937'
+                        : `linear-gradient(135deg, ${color}, ${color}cc)`,
                     color: '#111'
                   }}
                 >
@@ -199,16 +206,29 @@ export default function TasksPage() {
                 </button>
 
               </div>
+
+              {/* MESSAGE */}
+              {message?.id === task.id && (
+                <div
+                  className="mt-3 text-xs text-center py-2 rounded-lg"
+                  style={{
+                    background: message.success
+                      ? 'rgba(34,197,94,0.15)'
+                      : 'rgba(239,68,68,0.15)',
+                    color: message.success
+                      ? '#22c55e'
+                      : '#ef4444',
+                  }}
+                >
+                  {message.text}
+                </div>
+              )}
+
             </div>
           );
         })}
-      </div>
 
-      {/* 320x50 BANNER */}
-      <div
-        ref={bannerAdRef}
-        style={{ display: "flex", justifyContent: "center", marginTop: "20px" }}
-      />
+      </div>
 
     </div>
   );

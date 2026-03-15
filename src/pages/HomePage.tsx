@@ -291,12 +291,7 @@ History
 
 <div className="space-y-4 mb-6">
 
-<AdsgramTask reward={15}/>
-<AdsgramTask reward={15}/>
-<AdsgramTask reward={20}/>
-<AdsgramTask reward={20}/>
-<AdsgramTask reward={25}/>
-<AdsgramTask reward={25}/>
+<AdsgramTask blockId="task-25198"/>
 
 </div>
 

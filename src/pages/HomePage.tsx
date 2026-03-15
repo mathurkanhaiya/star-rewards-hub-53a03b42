@@ -360,27 +360,31 @@ export default function HomePage() {
       </button>
 
       {/* DAILY REWARD */}
-      <div className="p-5 mb-6 flex justify-between bg-slate-800 rounded-2xl">
+<div className="p-5 mb-6 flex justify-between bg-slate-800 rounded-2xl">
 
-        <div>
-          <div className="font-bold">Daily Reward</div>
+  <div>
+    <div className="font-bold">Daily Reward</div>
 
-          <div className="text-xs text-gray-400">
-            {dailyMessage ||
-              (dailyCooldown>0
-                ? `⏳ ${formatCountdown(dailyCooldown)}`
-                : `+${settings?.daily_bonus_base || 100} pts`)
-            }
-          </div>
-        </div>
+    <div className="text-xs text-gray-400">
+      {dailyMessage ||
+        (dailyCooldown>0
+          ? `⏳ ${formatCountdown(dailyCooldown)}`
+          : `+${settings?.daily_bonus_base || 100} pts`)
+      }
+    </div>
+  </div>
 
-        <button
-          onClick={handleDailyClaim}
-          disabled={dailyClaiming || dailyCooldown>0}
-          className="px-5 py-2 bg-green-500 rounded-xl font-bold"
-        >
-          {dailyCooldown>0 ? "Locked" : "Claim"}
-        </button>
+  <button
+    onClick={handleDailyClaim}
+    disabled={dailyClaiming || dailyCooldown>0}
+    className="px-5 py-2 bg-green-500 rounded-xl font-bold"
+  >
+    {dailyCooldown>0 ? "Locked" : "Claim"}
+  </button>
+
+</div>
+
+
 {/* SPONSOR OFFERS */}
 <div className="space-y-4 mb-6">
 
@@ -402,8 +406,6 @@ export default function HomePage() {
 
 </div>
 
-      </div>
-
-    </div>
-  );
+</div>
+);
 }

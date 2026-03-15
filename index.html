@@ -22,6 +22,17 @@ body{
   margin:0;
   font-family:system-ui;
 }
+
+/* Ad container fix */
+.banner-ad{
+  position:fixed;
+  bottom:90px; /* pushes ad above bottom navbar */
+  left:0;
+  width:100%;
+  display:flex;
+  justify-content:center;
+  z-index:999;
+}
 </style>
 
 <script>
@@ -57,7 +68,9 @@ window.addEventListener("DOMContentLoaded", function () {
 <script src="https://pl28904411.effectivegatecpm.com/2c/f6/fd/2cf6fd32f587b7ca3d92f31c65aa3854.js"></script>
 
 
-<!-- 320x50 Banner Ad -->
+<!-- Banner Ad (Fixed above navbar) -->
+<div class="banner-ad">
+
 <script>
   atOptions = {
     'key' : '51ed0e5213d1e44096de5736dd56a99e',
@@ -67,7 +80,10 @@ window.addEventListener("DOMContentLoaded", function () {
     'params' : {}
   };
 </script>
+
 <script src="https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js"></script>
+
+</div>
 
 
 <script type="module" src="/src/main.tsx"></script>

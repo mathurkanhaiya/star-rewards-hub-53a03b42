@@ -123,7 +123,7 @@ export default function WalletPage() {
 
     if (selectedMethod !== 'stars' && !wallet.trim()) {
       triggerHaptic('error');
-      setMessage('Enter TON address');
+      setMessage('Enter Tg username ');
       return;
     }
 
@@ -301,7 +301,7 @@ export default function WalletPage() {
                   type="text"
                   value={wallet}
                   onChange={e => setWallet(e.target.value)}
-                  placeholder="Enter wallet address"
+                  placeholder="Enter TON address"
                   className="w-full px-4 py-4 rounded-2xl bg-[#0f172a] border border-[#1e293b] outline-none"
                 />
               )}

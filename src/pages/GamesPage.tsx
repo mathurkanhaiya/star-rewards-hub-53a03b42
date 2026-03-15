@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import PromoSection from '@/components/games/PromoSection';
 
 type Page =
@@ -60,35 +60,6 @@ const games = [
 ];
 
 function GamesMenu({ onNavigate }: GamesMenuProps) {
-
-  const adRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-
-    if (!adRef.current) return;
-
-    const configScript = document.createElement("script");
-    configScript.type = "text/javascript";
-    configScript.innerHTML = `
-      atOptions = {
-        'key' : '51ed0e5213d1e44096de5736dd56a99e',
-        'format' : 'iframe',
-        'height' : 50,
-        'width' : 320,
-        'params' : {}
-      };
-    `;
-
-    const invokeScript = document.createElement("script");
-    invokeScript.type = "text/javascript";
-    invokeScript.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
-    invokeScript.async = true;
-
-    adRef.current.appendChild(configScript);
-    adRef.current.appendChild(invokeScript);
-
-  }, []);
-
   return (
     <div className="px-4 pb-28">
 
@@ -112,16 +83,6 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
       </div>
 
       <PromoSection />
-
-      {/* AD BANNER */}
-      <div
-        ref={adRef}
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          margin: "15px 0"
-        }}
-      />
 
       <div className="space-y-3">
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import PromoSection from '@/components/games/PromoSection';
 
 type Page =
@@ -61,9 +61,14 @@ const games = [
 
 function GamesMenu({ onNavigate }: GamesMenuProps) {
 
+  const adRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
 
+    if (!adRef.current) return;
+
     const configScript = document.createElement("script");
+    configScript.type = "text/javascript";
     configScript.innerHTML = `
       atOptions = {
         'key' : '51ed0e5213d1e44096de5736dd56a99e',
@@ -74,16 +79,13 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
       };
     `;
 
-    const adScript = document.createElement("script");
-    adScript.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
-    adScript.async = true;
+    const invokeScript = document.createElement("script");
+    invokeScript.type = "text/javascript";
+    invokeScript.src = "https://www.highperformanceformat.com/51ed0e5213d1e44096de5736dd56a99e/invoke.js";
+    invokeScript.async = true;
 
-    const container = document.getElementById("game-ad-container");
-
-    if (container) {
-      container.appendChild(configScript);
-      container.appendChild(adScript);
-    }
+    adRef.current.appendChild(configScript);
+    adRef.current.appendChild(invokeScript);
 
   }, []);
 
@@ -113,11 +115,11 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
 
       {/* AD BANNER */}
       <div
-        id="game-ad-container"
+        ref={adRef}
         style={{
           display: "flex",
           justifyContent: "center",
-          marginBottom: "15px"
+          margin: "15px 0"
         }}
       />
 

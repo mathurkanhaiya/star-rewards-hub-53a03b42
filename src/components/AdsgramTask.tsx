@@ -47,8 +47,8 @@ export default function AdsgramTask({ blockId }: AdsgramTaskProps) {
 
     <adsgram-task
       ref={taskRef}
-      class="task"
-      data-block-id="25198"
+      className="task"
+      data-block-id={blockId}
       style={{
         display:"block",
         width:"100%",
@@ -56,47 +56,34 @@ export default function AdsgramTask({ blockId }: AdsgramTaskProps) {
       }}
     >
 
-      {/* Reward slot */}
       <span slot="reward" style={{fontWeight:"bold"}}>
         100 coins
       </span>
 
-      {/* Button slot */}
-      <div
-        slot="button"
-        style={{
-          background:"#3b82f6",
-          padding:"6px 12px",
-          borderRadius:"8px",
-          color:"#fff"
-        }}
-      >
+      <div slot="button" style={{
+        background:"#3b82f6",
+        padding:"6px 12px",
+        borderRadius:"8px",
+        color:"#fff"
+      }}>
         GO
       </div>
 
-      {/* Claim slot */}
-      <div
-        slot="claim"
-        style={{
-          background:"#f59e0b",
-          padding:"6px 12px",
-          borderRadius:"8px",
-          color:"#fff"
-        }}
-      >
+      <div slot="claim" style={{
+        background:"#f59e0b",
+        padding:"6px 12px",
+        borderRadius:"8px",
+        color:"#fff"
+      }}>
         CLAIM
       </div>
 
-      {/* Done slot */}
-      <div
-        slot="done"
-        style={{
-          background:"#22c55e",
-          padding:"6px 12px",
-          borderRadius:"8px",
-          color:"#fff"
-        }}
-      >
+      <div slot="done" style={{
+        background:"#22c55e",
+        padding:"6px 12px",
+        borderRadius:"8px",
+        color:"#fff"
+      }}>
         DONE
       </div>
 

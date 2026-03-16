@@ -14,19 +14,20 @@ export default function AdsgramTask({ blockId }: AdsgramTaskProps) {
     if (!task) return;
 
     const onReward = (event:any)=>{
-      alert(`Reward in block ${event.detail}`);
+      console.log("Reward received:", event.detail);
+      // Here you can add reward logic if needed
     };
 
     const onError = (event:any)=>{
-      alert(`Error during loading or render for block ${event.detail}`);
+      console.log("Adsgram error:", event.detail);
     };
 
     const onBannerNotFound = (event:any)=>{
-      alert(`Can't find banner for block ${event.detail}`);
+      console.log("No ad available:", event.detail);
     };
 
     const onTooLongSession = ()=>{
-      alert("Session too long. Restart the app to get ads");
+      console.log("Adsgram session too long");
     };
 
     task.addEventListener("reward", onReward);
@@ -60,30 +61,39 @@ export default function AdsgramTask({ blockId }: AdsgramTaskProps) {
         10 coins
       </span>
 
-      <div slot="button" style={{
-        background:"#3b82f6",
-        padding:"6px 12px",
-        borderRadius:"8px",
-        color:"#fff"
-      }}>
+      <div
+        slot="button"
+        style={{
+          background:"#3b82f6",
+          padding:"6px 12px",
+          borderRadius:"8px",
+          color:"#fff"
+        }}
+      >
         GO
       </div>
 
-      <div slot="claim" style={{
-        background:"#f59e0b",
-        padding:"6px 12px",
-        borderRadius:"8px",
-        color:"#fff"
-      }}>
+      <div
+        slot="claim"
+        style={{
+          background:"#f59e0b",
+          padding:"6px 12px",
+          borderRadius:"8px",
+          color:"#fff"
+        }}
+      >
         CLAIM
       </div>
 
-      <div slot="done" style={{
-        background:"#22c55e",
-        padding:"6px 12px",
-        borderRadius:"8px",
-        color:"#fff"
-      }}>
+      <div
+        slot="done"
+        style={{
+          background:"#22c55e",
+          padding:"6px 12px",
+          borderRadius:"8px",
+          color:"#fff"
+        }}
+      >
         DONE
       </div>
 

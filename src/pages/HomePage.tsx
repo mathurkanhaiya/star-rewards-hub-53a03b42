@@ -291,7 +291,7 @@ History
 
 <div className="space-y-4 mb-6">
 
-<AdsgramTask blockId="task-25198"/>
+<AdsgramTask blockId="25198"/>
 
 </div>
 

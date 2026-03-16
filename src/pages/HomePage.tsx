@@ -114,7 +114,7 @@ export default function HomePage(){
 
 <div className="space-y-4">
 
-<AdsgramTask blockId="25198"/>
+<AdsgramTask blockId="task-25198"/>
 
 </div>
 

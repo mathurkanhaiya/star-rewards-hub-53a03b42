@@ -112,41 +112,11 @@ export default function HomePage(){
      ADSGRAM TASK SLOT EVENTS
   =================================*/
 
-  useEffect(()=>{
+<div className="space-y-4">
 
-    const task = document.querySelector(".task");
+<AdsgramTask blockId="25198"/>
 
-    if(!task) return;
-
-    const onReward = (event:any)=>{
-      alert(`Reward in block ${event.detail}`);
-    };
-
-    const onError = (event:any)=>{
-      alert(`Error during loading or render for block ${event.detail}`);
-    };
-
-    const onBannerNotFound = (event:any)=>{
-      alert(`Can't found banner for block ${event.detail}`);
-    };
-
-    const onTooLongSession = ()=>{
-      alert("The session is too long. Please restart the app to get ads");
-    };
-
-    task.addEventListener("reward", onReward);
-    task.addEventListener("onError", onError);
-    task.addEventListener("onBannerNotFound", onBannerNotFound);
-    task.addEventListener("onTooLongSession", onTooLongSession);
-
-    return ()=>{
-      task.removeEventListener("reward", onReward);
-      task.removeEventListener("onError", onError);
-      task.removeEventListener("onBannerNotFound", onBannerNotFound);
-      task.removeEventListener("onTooLongSession", onTooLongSession);
-    };
-
-  },[]);
+</div>
 
   /* ===============================
      LOAD DATA

@@ -85,18 +85,6 @@ export default function HomePage(){
   const [activeTab,setActiveTab] = useState<"earn"|"history">("earn");
 
   /* ===============================
-     ADSGRAM TASK IDS
-  =================================*/
-
-  const taskBlocks = [
-    "task-25214",
-    "task-25212",
-    "task-25213",
-    "task-25215",
-    "task-25198"
-  ];
-
-  /* ===============================
      ADSGRAM REWARDED
   =================================*/
 
@@ -303,9 +291,7 @@ History
 
 <div className="space-y-4 mb-6">
 
-{taskBlocks.map((id)=>(
-  <AdsgramTask key={id} blockId={id}/>
-))}
+<AdsgramTask blockId="task-25198" />
 
 </div>
 

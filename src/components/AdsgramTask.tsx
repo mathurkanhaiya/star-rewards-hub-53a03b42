@@ -20,7 +20,7 @@ export default function AdsgramTask({ blockId }: { blockId: string }) {
 
   return (
     <div
-      id={blockId}
+      id={`adsgram-${blockId}`}
       className="w-full rounded-2xl bg-slate-800 p-4 border border-yellow-400/20"
     />
   );

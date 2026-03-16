@@ -48,7 +48,7 @@ export default function AdsgramTask({ blockId }: AdsgramTaskProps) {
     <adsgram-task
       ref={taskRef}
       class="task"
-      data-block-id={blockId}
+      data-block-id="25198"
       style={{
         display:"block",
         width:"100%",

@@ -2,10 +2,9 @@ import { useEffect, useRef } from "react";
 
 interface AdsgramTaskProps {
   blockId: string;
-  debug?: boolean;
 }
 
-export default function AdsgramTask({ blockId, debug = false }: AdsgramTaskProps) {
+export default function AdsgramTask({ blockId }: AdsgramTaskProps) {
 
   const taskRef = useRef<any>(null);
 
@@ -14,62 +13,94 @@ export default function AdsgramTask({ blockId, debug = false }: AdsgramTaskProps
     const task = taskRef.current;
     if (!task) return;
 
-    const rewardHandler = (event: CustomEvent) => {
-      console.log("Reward received:", event.detail);
+    const onReward = (event:any)=>{
+      alert(`Reward in block ${event.detail}`);
     };
 
-    const errorHandler = (event: CustomEvent) => {
-      console.error("Adsgram error:", event.detail);
+    const onError = (event:any)=>{
+      alert(`Error during loading or render for block ${event.detail}`);
     };
 
-    const bannerHandler = (event: CustomEvent) => {
-      console.warn("Banner not found:", event.detail);
+    const onBannerNotFound = (event:any)=>{
+      alert(`Can't find banner for block ${event.detail}`);
     };
 
-    const sessionHandler = () => {
-      console.warn("Ads session too long. Restart app.");
+    const onTooLongSession = ()=>{
+      alert("Session too long. Restart the app to get ads");
     };
 
-    task.addEventListener("reward", rewardHandler);
-    task.addEventListener("onError", errorHandler);
-    task.addEventListener("onBannerNotFound", bannerHandler);
-    task.addEventListener("onTooLongSession", sessionHandler);
+    task.addEventListener("reward", onReward);
+    task.addEventListener("onError", onError);
+    task.addEventListener("onBannerNotFound", onBannerNotFound);
+    task.addEventListener("onTooLongSession", onTooLongSession);
 
-    return () => {
-      task.removeEventListener("reward", rewardHandler);
-      task.removeEventListener("onError", errorHandler);
-      task.removeEventListener("onBannerNotFound", bannerHandler);
-      task.removeEventListener("onTooLongSession", sessionHandler);
+    return ()=>{
+      task.removeEventListener("reward", onReward);
+      task.removeEventListener("onError", onError);
+      task.removeEventListener("onBannerNotFound", onBannerNotFound);
+      task.removeEventListener("onTooLongSession", onTooLongSession);
     };
 
   }, []);
 
-  if (!customElements.get("adsgram-task")) {
-    return null;
-  }
-
   return (
+
     <adsgram-task
       ref={taskRef}
+      class="task"
       data-block-id={blockId}
-      data-debug={debug}
-      className="w-full rounded-2xl bg-slate-800 p-4 border border-yellow-400/20"
+      style={{
+        display:"block",
+        width:"100%",
+        marginBottom:"14px"
+      }}
     >
-      <span slot="reward" className="text-yellow-400 font-bold">
+
+      {/* Reward slot */}
+      <span slot="reward" style={{fontWeight:"bold"}}>
         100 coins
       </span>
 
-      <div slot="button" className="bg-yellow-400 text-black px-4 py-2 rounded-lg font-bold">
+      {/* Button slot */}
+      <div
+        slot="button"
+        style={{
+          background:"#3b82f6",
+          padding:"6px 12px",
+          borderRadius:"8px",
+          color:"#fff"
+        }}
+      >
         GO
       </div>
 
-      <div slot="claim" className="bg-green-500 px-4 py-2 rounded-lg font-bold">
+      {/* Claim slot */}
+      <div
+        slot="claim"
+        style={{
+          background:"#f59e0b",
+          padding:"6px 12px",
+          borderRadius:"8px",
+          color:"#fff"
+        }}
+      >
         CLAIM
       </div>
 
-      <div slot="done" className="bg-gray-600 px-4 py-2 rounded-lg font-bold">
+      {/* Done slot */}
+      <div
+        slot="done"
+        style={{
+          background:"#22c55e",
+          padding:"6px 12px",
+          borderRadius:"8px",
+          color:"#fff"
+        }}
+      >
         DONE
       </div>
+
     </adsgram-task>
+
   );
 }

@@ -76,7 +76,7 @@ export default function HomePage(){
   const [dailyClaiming,setDailyClaiming] = useState(false);
   const [dailyMessage,setDailyMessage] = useState("");
 
-  const [transactions,setTransactions] = useState([]);
+  const [transactions,setTransactions] = useState<any[]>([]);
   const [adLoading,setAdLoading] = useState(false);
 
   const [dailyCooldown,setDailyCooldown] = useState(0);
@@ -107,16 +107,6 @@ export default function HomePage(){
   },[user,refreshBalance]);
 
   const { showAd } = useRewardedAd(onAdReward);
-
-  /* ===============================
-     ADSGRAM TASK SLOT EVENTS
-  =================================*/
-
-<div className="space-y-4">
-
-<AdsgramTask blockId="task-25198"/>
-
-</div>
 
   /* ===============================
      LOAD DATA
@@ -301,7 +291,7 @@ History
 
 <div className="space-y-4 mb-6">
 
-<AdsgramTask blockId="25198"/>
+<AdsgramTask blockId="task-25198" />
 
 </div>
 

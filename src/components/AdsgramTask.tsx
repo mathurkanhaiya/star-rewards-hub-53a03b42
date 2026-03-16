@@ -57,7 +57,7 @@ export default function AdsgramTask({ blockId }: AdsgramTaskProps) {
     >
 
       <span slot="reward" style={{fontWeight:"bold"}}>
-        100 coins
+        10 coins
       </span>
 
       <div slot="button" style={{

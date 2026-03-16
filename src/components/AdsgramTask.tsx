@@ -1,153 +1,184 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 interface AdsgramTaskProps {
   blockId: string;
+  rewardAmount?: number;       // e.g. 10
+  onReward?: (detail: any) => void;
+  onError?: (detail: any) => void;
 }
 
-export default function AdsgramTask({ blockId }: AdsgramTaskProps) {
+export default function AdsgramTask({
+  blockId,
+  rewardAmount = 10,
+  onReward,
+  onError,
+}: AdsgramTaskProps) {
+  const taskRef = useRef<HTMLElement & { show?: () => void }>(null);
 
-  const taskRef = useRef<any>(null);
+  const showAd = useCallback(() => {
+    if (taskRef.current?.show) {
+      taskRef.current.show();
+    } else {
+      console.warn("No .show() method found on adsgram-task");
+    }
+  }, []);
 
   useEffect(() => {
-
     const task = taskRef.current;
     if (!task) return;
 
-    const onReward = (event:any)=>{
-      console.log("Reward received:", event.detail);
+    const handleReward = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      console.log("Reward:", detail);
+      onReward?.(detail);
     };
 
-    const onError = (event:any)=>{
-      console.log("Adsgram error:", event.detail);
+    const handleError = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      console.log("Error:", detail);
+      onError?.(detail);
     };
 
-    const onBannerNotFound = ()=>{
-      console.log("No ad available");
+    const handleNoBanner = () => console.log("No banner available");
+
+    task.addEventListener("reward", handleReward);
+    task.addEventListener("error", handleError);
+    task.addEventListener("bannerNotFound", handleNoBanner);
+
+    return () => {
+      task.removeEventListener("reward", handleReward);
+      task.removeEventListener("error", handleError);
+      task.removeEventListener("bannerNotFound", handleNoBanner);
     };
-
-    task.addEventListener("reward", onReward);
-    task.addEventListener("onError", onError);
-    task.addEventListener("onBannerNotFound", onBannerNotFound);
-
-    return ()=>{
-      task.removeEventListener("reward", onReward);
-      task.removeEventListener("onError", onError);
-      task.removeEventListener("onBannerNotFound", onBannerNotFound);
-    };
-
-  }, []);
+  }, [onReward, onError]);
 
   return (
-
     <adsgram-task
       ref={taskRef}
-      className="task"
       data-block-id={blockId}
-      style={{
-        display:"block",
-        width:"100%"
-      }}
+      style={{ display: "block", width: "100%", maxWidth: "420px", margin: "0 auto" }}
     >
-
-      {/* TASK CARD */}
-
+      {/* Reward display – usually shown near title or as badge */}
       <div
+        slot="reward"
         style={{
-          display:"flex",
-          alignItems:"center",
-          justifyContent:"space-between",
-          background:"#111827",
-          borderRadius:"14px",
-          padding:"12px 14px",
-          border:"1px solid rgba(255,255,255,0.06)"
+          fontSize: "13px",
+          fontWeight: 600,
+          color: "#fbbf24",
+          background: "rgba(251,191,36,0.15)",
+          padding: "4px 10px",
+          borderRadius: "12px",
+          whiteSpace: "nowrap",
         }}
       >
+        +{rewardAmount} coins
+      </div>
 
-        {/* LEFT */}
-        <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+      {/* Optional: custom icon or title slot if supported, otherwise keep in main content */}
 
+      {/* Main card content (not slotted – this is your custom UI wrapper) */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: "linear-gradient(135deg, #1e293b, #111827)",
+          borderRadius: "16px",
+          padding: "14px 16px",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          transition: "transform 0.15s ease",
+          cursor: "default",
+        }}
+      >
+        {/* Left: icon + text */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
             style={{
-              width:"36px",
-              height:"36px",
-              borderRadius:"8px",
-              background:"#1f2937",
-              display:"flex",
-              alignItems:"center",
-              justifyContent:"center",
-              fontSize:"18px"
+              width: "44px",
+              height: "44px",
+              borderRadius: "12px",
+              background: "linear-gradient(45deg, #3b82f6, #60a5fa)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "22px",
+              boxShadow: "0 2px 8px rgba(59,130,246,0.4)",
             }}
           >
-            🎯
+            🎥
           </div>
 
           <div>
-
-            <div style={{fontSize:"14px",fontWeight:"600"}}>
-              Watch Sponsored Ad
+            <div style={{ fontSize: "15px", fontWeight: 700, color: "#f3f4f6" }}>
+              Watch Sponsored Video
             </div>
-
-            <span
-              slot="reward"
-              style={{
-                fontSize:"12px",
-                color:"#9ca3af"
-              }}
-            >
-              +10 coins
-            </span>
-
+            <div style={{ fontSize: "13px", color: "#9ca3af", marginTop: "2px" }}>
+              Short ad • Instant reward
+            </div>
           </div>
-
         </div>
 
-        {/* BUTTONS */}
+        {/* Buttons – Adsgram shows/hides them automatically */}
+        <div style={{ display: "flex", gap: "10px" }}>
+          {/* GO button – user clicks this to start ad */}
+          <button
+            slot="button"
+            onClick={showAd}
+            style={{
+              background: "#3b82f6",
+              color: "white",
+              border: "none",
+              padding: "10px 20px",
+              borderRadius: "12px",
+              fontWeight: 600,
+              fontSize: "14px",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              boxShadow: "0 2px 6px rgba(59,130,246,0.3)",
+            }}
+          >
+            Watch & Earn
+          </button>
 
-        <button
-          slot="button"
-          style={{
-            background:"#3b82f6",
-            color:"#fff",
-            border:"none",
-            padding:"6px 14px",
-            borderRadius:"8px",
-            fontWeight:"600"
-          }}
-        >
-          GO
-        </button>
+          {/* CLAIM – shown after ad watched, before reward */}
+          <button
+            slot="claim"
+            style={{
+              background: "#f59e0b",
+              color: "white",
+              border: "none",
+              padding: "10px 20px",
+              borderRadius: "12px",
+              fontWeight: 600,
+              fontSize: "14px",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            Claim Now
+          </button>
 
-        <button
-          slot="claim"
-          style={{
-            background:"#f59e0b",
-            color:"#fff",
-            border:"none",
-            padding:"6px 14px",
-            borderRadius:"8px",
-            fontWeight:"600"
-          }}
-        >
-          CLAIM
-        </button>
-
-        <button
-          slot="done"
-          style={{
-            background:"#22c55e",
-            color:"#fff",
-            border:"none",
-            padding:"6px 14px",
-            borderRadius:"8px",
-            fontWeight:"600"
-          }}
-        >
-          DONE
-        </button>
-
+          {/* DONE – shown after reward given */}
+          <button
+            slot="done"
+            disabled
+            style={{
+              background: "#22c55e",
+              color: "white",
+              border: "none",
+              padding: "10px 20px",
+              borderRadius: "12px",
+              fontWeight: 600,
+              fontSize: "14px",
+              opacity: 0.9,
+              cursor: "default",
+            }}
+          >
+            ✓ Done
+          </button>
+        </div>
       </div>
-
     </adsgram-task>
-
   );
 }

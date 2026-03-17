@@ -24,7 +24,6 @@ interface GamesMenuProps {
 
 const ALLOWED_COUNTRIES = ['US', 'MX', 'FR', 'DE', 'GB', 'CA', 'AU'];
 
-// 🌍 Fetch country
 async function fetchCountry(): Promise<string | null> {
   try {
     const res = await fetch('https://ipapi.co/json/');
@@ -123,38 +122,38 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
   };
 
   /* ===============================
-     🎮 GAMES
+     🎮 GAMES (GIF ICONS)
   ================================ */
   const games = [
     {
       id: 'tower' as Page,
+      icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236274906-2cbfc5e2.gif',
       name: 'Tower Climb',
-      desc: 'Climb floors & earn points',
-      icon: '🏗️',
+      desc: 'Tap at the right time to climb infinite floors.',
     },
     {
       id: 'luckybox' as Page,
+      icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236074591-d9f8b5e0.gif',
       name: 'Lucky Box',
-      desc: 'Open mystery rewards',
-      icon: '🎁',
+      desc: 'Watch an ad, pick a mystery box.',
     },
     {
       id: 'dice' as Page,
+      icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236388452-80bcfe97.gif',
       name: 'Dice Roll',
-      desc: 'Roll & earn',
-      icon: '🎲',
+      desc: 'Watch an ad, roll dice.',
     },
     {
       id: 'cardflip' as Page,
+      icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236194044-d5413577.gif',
       name: 'Card Flip',
-      desc: 'Match cards',
-      icon: '🃏',
+      desc: 'Watch an ad, flip cards.',
     },
     {
       id: 'numberguess' as Page,
+      icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236312067-54b2669f.gif',
       name: 'Number Guess',
-      desc: 'Guess correctly',
-      icon: '🔢',
+      desc: 'Watch an ad, guess number.',
     },
   ];
 
@@ -176,36 +175,40 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
       {/* 🎬 MAIN AD */}
       <div
         onClick={handleMainAd}
-        className={`mb-4 p-5 rounded-2xl cursor-pointer
+        className={`mb-4 p-5 rounded-2xl cursor-pointer transition-all
         ${isAllowed 
-          ? 'bg-green-500/10 border border-green-400/30' 
+          ? 'bg-green-500/10 border border-green-400/30 hover:scale-[1.02]' 
           : 'bg-red-500/10 border border-red-400/30'
         }`}
       >
-        <div className="flex justify-between">
+        <div className="flex justify-between items-center">
           <div>
             <div className="font-bold text-lg">🎬 Easy Ad</div>
             <div className="text-xs text-gray-400">Earn 30 coins</div>
           </div>
-          <div>{loadingAd ? "..." : "+30"}</div>
+          <div className="text-green-400 font-bold">
+            {loadingAd ? "..." : "+30"}
+          </div>
         </div>
       </div>
 
       {/* ⚡ POPUP AD */}
       <div
         onClick={handlePopupAd}
-        className={`mb-6 p-5 rounded-2xl cursor-pointer
+        className={`mb-6 p-5 rounded-2xl cursor-pointer transition-all
         ${isAllowed 
-          ? 'bg-blue-500/10 border border-blue-400/30' 
+          ? 'bg-blue-500/10 border border-blue-400/30 hover:scale-[1.02]' 
           : 'bg-red-500/10 border border-red-400/30'
         }`}
       >
-        <div className="flex justify-between">
+        <div className="flex justify-between items-center">
           <div>
             <div className="font-bold text-lg">⚡ Popup Ad</div>
             <div className="text-xs text-gray-400">Earn 20 coins</div>
           </div>
-          <div>{loadingAd ? "..." : "+20"}</div>
+          <div className="text-blue-400 font-bold">
+            {loadingAd ? "..." : "+20"}
+          </div>
         </div>
       </div>
 
@@ -215,13 +218,26 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
           <button
             key={game.id}
             onClick={() => onNavigate(game.id)}
-            className="w-full p-5 rounded-2xl bg-slate-800 flex justify-between"
+            className="game-card w-full rounded-2xl p-5 text-left"
           >
-            <div>
-              <div className="font-bold">{game.name}</div>
-              <div className="text-xs text-gray-400">{game.desc}</div>
+            <div className="flex items-center gap-4">
+
+              <img
+                src={game.icon}
+                alt={game.name}
+                className="w-14 h-14 object-contain"
+              />
+
+              <div className="flex-1">
+                <div className="font-bold text-lg">{game.name}</div>
+                <div className="text-xs mt-1 text-gray-400">
+                  {game.desc}
+                </div>
+              </div>
+
+              <div>→</div>
+
             </div>
-            <div>{game.icon}</div>
           </button>
         ))}
       </div>
@@ -231,3 +247,4 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
 }
 
 export default GamesMenu;
+export type { Page };

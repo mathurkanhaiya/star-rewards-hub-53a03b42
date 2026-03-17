@@ -97,11 +97,11 @@ export default function HomePage() {
 
     triggerHaptic("success");
 
-    await logAdWatch(user.id, "adsgram_reward", 50);
+    await logAdWatch(user.id, "adsgram_reward", 40);
     await refreshBalance();
 
     setCoinBurst(true);
-    setDailyMessage("+50 pts 🎬 (Adsgram)");
+    setDailyMessage("+40 pts 🎬 (Adsgram)");
 
     setTimeout(() => setCoinBurst(false), 1200);
     setTimeout(() => setDailyMessage(""), 3000);
@@ -126,11 +126,11 @@ export default function HomePage() {
 
       triggerHaptic("success");
 
-      await logAdWatch(user.id, "monetag_reward", 25);
+      await logAdWatch(user.id, "monetag_reward", 15);
       await refreshBalance();
 
       setCoinBurst(true);
-      setDailyMessage("+25 pts 💰 (Monetag)");
+      setDailyMessage("+15 pts 💰 (Monetag)");
 
       setTimeout(() => setCoinBurst(false), 1200);
       setTimeout(() => setDailyMessage(""), 3000);
@@ -282,8 +282,8 @@ export default function HomePage() {
         {adLoading
           ? "Loading Ad..."
           : adNetwork === "adsgram"
-          ? "🎬 Watch Adsgram Ad (+50)"
-          : "💰 Watch Monetag Ad (+25)"}
+          ? "🎬 Watch Adsgram Ad (+40)"
+          : "💰 Watch Monetag Ad (+15)"}
       </button>
 
       {/* DAILY */}

@@ -1,5 +1,4 @@
 import React from 'react';
-import PromoSection from '@/components/games/PromoSection';
 
 type Page =
   | 'home'
@@ -73,16 +72,11 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
 
         <h2 className="text-2xl font-bold shimmer-text">Games</h2>
 
-        <p
-          className="text-sm mt-1"
-          style={{ color: 'hsl(var(--muted-foreground))' }}
-        >
+        <p className="text-sm mt-1 text-gray-400">
           Play games, earn points & climb leaderboards!
         </p>
 
       </div>
-
-      <PromoSection />
 
       <div className="space-y-3">
 
@@ -110,10 +104,7 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
                   {game.name}
                 </div>
 
-                <div
-                  className="text-xs mt-1"
-                  style={{ color: 'hsl(var(--muted-foreground))' }}
-                >
+                <div className="text-xs mt-1 text-gray-400">
                   {game.desc}
                 </div>
 

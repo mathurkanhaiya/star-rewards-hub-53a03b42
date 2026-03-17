@@ -10,7 +10,6 @@ import AdsgramTask from "@/components/AdsgramTask";
 function triggerHaptic(type: any) {
   if (typeof window !== "undefined" && (window as any).Telegram) {
     const tg = (window as any).Telegram.WebApp;
-
     if (tg?.HapticFeedback) {
       if (type === "impact") tg.HapticFeedback.impactOccurred("medium");
       if (type === "success") tg.HapticFeedback.notificationOccurred("success");
@@ -29,7 +28,6 @@ function AnimatedNumber({ value }: any) {
   useEffect(() => {
     let start = prev.current;
     const diff = value - start;
-
     const steps = 30;
     const inc = diff / steps;
 
@@ -48,7 +46,6 @@ function AnimatedNumber({ value }: any) {
     }, 20);
 
     prev.current = value;
-
     return () => clearInterval(timer);
   }, [value]);
 
@@ -77,7 +74,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"earn" | "history">("earn");
 
   /* ===============================
-     ADSGRAM REWARDED
+     ADSGRAM (PRIMARY REWARD)
   =================================*/
   const onAdReward = useCallback(async () => {
     if (!user) return;
@@ -97,15 +94,16 @@ export default function HomePage() {
   const { showAd } = useRewardedAd(onAdReward);
 
   /* ===============================
-     MONETAG REWARDED POPUP
+     MONETAG (SECONDARY - SAFE)
   =================================*/
   const lastMonetag = useRef(0);
 
   const showMonetagAd = async () => {
     if (!user) return;
 
-    if (Date.now() - lastMonetag.current < 45000) {
-      alert("⏳ Wait before next bonus ad");
+    // cooldown protection
+    if (Date.now() - lastMonetag.current < 60000) {
+      alert("⏳ Wait 1 min before next bonus ad");
       return;
     }
 
@@ -115,16 +113,27 @@ export default function HomePage() {
       triggerHaptic("impact");
       setAdLoading(true);
 
-      await (window as any).show_10742752("pop");
+      (window as any).show_10742752({
+        type: "inApp",
+        inAppSettings: {
+          frequency: 1,
+          capping: 0,
+          interval: 0,
+          timeout: 0,
+          everyPage: false,
+        },
+      });
 
-      // reward user
+      // simulate watch time
+      await new Promise((res) => setTimeout(res, 4000));
+
       triggerHaptic("success");
 
-      await logAdWatch(user.id, "monetag_reward", 40);
+      await logAdWatch(user.id, "monetag_inapp", 30);
       await refreshBalance();
 
       setCoinBurst(true);
-      setDailyMessage("+40 pts 💎");
+      setDailyMessage("+30 pts ⚡");
 
       setTimeout(() => setCoinBurst(false), 1200);
       setTimeout(() => setDailyMessage(""), 3000);
@@ -185,7 +194,6 @@ export default function HomePage() {
       setCoinBurst(true);
 
       const now = new Date();
-
       const midnightUTC = new Date(
         Date.UTC(
           now.getUTCFullYear(),
@@ -213,19 +221,17 @@ export default function HomePage() {
 
   return (
     <div className="px-4 pb-28 text-white">
+
       {/* BALANCE */}
       <div className="rounded-3xl p-6 mb-6 text-center bg-gradient-to-br from-slate-900 to-slate-800 border border-yellow-400/20">
         {coinBurst && <div className="text-4xl animate-bounce">💰</div>}
-
         <div className="text-xs text-gray-400 mb-1">Total Balance</div>
 
         <div className="text-5xl font-black text-yellow-400">
           <AnimatedNumber value={balance?.points || 0} />
         </div>
 
-        <div className="text-xs text-gray-500 mt-1">
-          Available Points
-        </div>
+        <div className="text-xs text-gray-500 mt-1">Available Points</div>
       </div>
 
       {/* ADSGRAM BUTTON */}
@@ -237,18 +243,18 @@ export default function HomePage() {
           setAdLoading(false);
         }}
         disabled={adLoading}
-        className="w-full rounded-3xl p-6 mb-4 font-bold text-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg active:scale-95"
+        className="w-full rounded-3xl p-6 mb-4 font-bold text-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-black"
       >
-        {adLoading ? "Loading Ad..." : "🎬 Watch Ad +50"}
+        {adLoading ? "Loading..." : "🎬 Watch Ad +50"}
       </button>
 
       {/* MONETAG BUTTON */}
       <button
         onClick={showMonetagAd}
         disabled={adLoading}
-        className="w-full rounded-3xl p-5 mb-6 font-bold text-md bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg active:scale-95"
+        className="w-full rounded-3xl p-5 mb-6 font-bold bg-gradient-to-r from-blue-500 to-cyan-500"
       >
-        💎 Bonus Ad +40
+        ⚡ Quick Bonus +30
       </button>
 
       {/* DAILY */}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 type Page =
   | 'home'
@@ -15,17 +15,16 @@ type Page =
   | 'cardflip'
   | 'numberguess'
   | 'luckybox'
-  | 'specialad'; // ✅ added
+  | 'specialad';
 
 interface GamesMenuProps {
   onNavigate: (page: Page) => void;
 }
 
-// 🌍 Allowed countries
 const ALLOWED_COUNTRIES = ['US', 'MX', 'FR', 'DE', 'GB'];
 
-// 🌍 Get user country (IP-based)
-async function getUserCountry(): Promise<string | null> {
+// 🌍 Fetch country
+async function fetchCountry(): Promise<string | null> {
   try {
     const res = await fetch('https://ipapi.co/json/');
     const data = await res.json();
@@ -36,86 +35,101 @@ async function getUserCountry(): Promise<string | null> {
   }
 }
 
-// 💰 Reward logic
+// 💰 Reward (UPDATED → 30 coins)
 function rewardUser() {
   let coins = parseInt(localStorage.getItem("coins") || "0");
-  coins += 100;
+  coins += 30;
   localStorage.setItem("coins", coins);
 }
 
-// 🎯 Special Ad Handler
-async function handleSpecialAd() {
-  try {
-    const country = await getUserCountry();
-
-    if (!country || !ALLOWED_COUNTRIES.includes(country)) {
-      alert("❌ This task is only available in USA, Mexico, France, Germany, UK.\nUse VPN if needed.");
-      return;
-    }
-
-    // ✅ Show ad
-    await show_10742752();
-
-    // ✅ Reward
-    rewardUser();
-
-    alert("🎉 You earned 100 coins!");
-
-  } catch (err) {
-    console.error(err);
-    alert("Ad not completed or failed.");
-  }
-}
-
-// 🎮 Games list
 const games = [
   {
     id: 'tower' as Page,
     icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236274906-2cbfc5e2.gif',
     name: 'Tower Climb',
-    desc: 'Tap at the right time to climb infinite floors. How high can you go?',
+    desc: 'Tap at the right time to climb infinite floors.',
     color: 'gold',
   },
   {
     id: 'luckybox' as Page,
     icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236074591-d9f8b5e0.gif',
     name: 'Lucky Box',
-    desc: 'Watch an ad, pick a mystery box, win big prizes!',
+    desc: 'Watch an ad, pick a mystery box.',
     color: 'gold',
   },
   {
     id: 'dice' as Page,
     icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236388452-80bcfe97.gif',
     name: 'Dice Roll',
-    desc: 'Watch an ad, roll two dice, earn 10–100 points!',
+    desc: 'Watch an ad, roll dice.',
     color: 'cyan',
   },
   {
     id: 'cardflip' as Page,
     icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236194044-d5413577.gif',
     name: 'Card Flip',
-    desc: 'Watch an ad, flip 3 cards — match them for big rewards!',
+    desc: 'Watch an ad, flip cards.',
     color: 'purple',
   },
   {
     id: 'numberguess' as Page,
     icon: 'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773236312067-54b2669f.gif',
     name: 'Number Guess',
-    desc: 'Watch an ad, guess the hidden number, closer = more points!',
+    desc: 'Watch an ad, guess number.',
     color: 'cyan',
   },
   {
     id: 'specialad' as Page,
     icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
     name: 'Special Ad Task',
-    desc: 'Only available in selected countries. Use VPN if needed.',
+    desc: 'Only for selected countries. Use VPN if needed.',
     color: 'gold',
   },
 ];
 
 function GamesMenu({ onNavigate }: GamesMenuProps) {
+  const [country, setCountry] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCountry().then(setCountry);
+  }, []);
+
+  const isAllowed = country && ALLOWED_COUNTRIES.includes(country);
+
+  const handleSpecialAd = async () => {
+    if (!isAllowed) {
+      alert("❌ Not available in your country.\nUse VPN (USA, UK, etc).");
+      return;
+    }
+
+    try {
+      await show_10742752();
+      rewardUser();
+      alert(`🎉 You earned 30 coins!`);
+    } catch {
+      alert("Ad not completed.");
+    }
+  };
+
   return (
     <div className="px-4 pb-28">
+
+      {/* 🌍 TOP COUNTRY STATUS (VERY VISIBLE) */}
+      <div className="mb-4 text-center">
+        {country ? (
+          <div className={`inline-block px-4 py-2 rounded-full text-sm font-semibold
+            ${isAllowed 
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+            }`}>
+            🌍 {country} {isAllowed ? '• Eligible for Special Ads' : '• Not Eligible'}
+          </div>
+        ) : (
+          <div className="text-gray-500 text-sm">
+            🌍 Detecting your country...
+          </div>
+        )}
+      </div>
 
       <div className="text-center mb-6">
 
@@ -140,7 +154,7 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
             key={game.id}
             onClick={() => {
               if (game.id === 'specialad') {
-                handleSpecialAd(); // ✅ special logic
+                handleSpecialAd();
               } else {
                 onNavigate(game.id);
               }

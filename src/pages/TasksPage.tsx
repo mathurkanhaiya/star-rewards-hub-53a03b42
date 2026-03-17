@@ -45,13 +45,19 @@ export default function TasksPage() {
       user ? getUserTasks(user.id) : Promise.resolve([]),
     ]);
 
-    setTasks(allTasks);
-
-    const ids = new Set(
+    const completedIds = new Set(
       (userTasksList as Array<{ task_id: string }>).map(ut => ut.task_id)
     );
 
-    setCompletedTaskIds(ids);
+    setCompletedTaskIds(completedIds);
+
+    // 🔥 REMOVE COMPLETED TASKS HERE
+    const availableTasks = allTasks.filter(task => {
+      const isCompleted = completedIds.has(task.id);
+      return task.is_repeatable || !isCompleted;
+    });
+
+    setTasks(availableTasks);
   }
 
   async function handleComplete(task: Task) {
@@ -79,6 +85,9 @@ export default function TasksPage() {
         success: true
       });
 
+      // 🔥 REMOVE TASK INSTANTLY FROM UI
+      setTasks(prev => prev.filter(t => t.id !== task.id));
+
       setCompletedTaskIds(prev => new Set([...prev, task.id]));
 
       await refreshBalance();
@@ -97,6 +106,7 @@ export default function TasksPage() {
   }
 
   const filters = ['all', 'social', 'daily', 'referral', 'video', 'special'];
+
   const filtered =
     filter === 'all'
       ? tasks
@@ -139,15 +149,15 @@ export default function TasksPage() {
       {/* TASK LIST */}
       <div className="space-y-4">
 
+        {filtered.length === 0 && (
+          <div className="text-center text-gray-400 text-sm">
+            🎉 No available tasks right now
+          </div>
+        )}
+
         {filtered.map(task => {
-
-          const isCompleted =
-            completedTaskIds.has(task.id) && !task.is_repeatable;
-
           const isCompleting = completing === task.id;
-
-          const color =
-            TASK_COLORS[task.task_type] || '#facc15';
+          const color = TASK_COLORS[task.task_type] || '#facc15';
 
           return (
             <div
@@ -174,7 +184,6 @@ export default function TasksPage() {
 
                 {/* TEXT */}
                 <div className="flex-1">
-
                   <div className="font-semibold text-sm">
                     {task.title}
                   </div>
@@ -186,23 +195,19 @@ export default function TasksPage() {
                   <div className="text-xs text-yellow-400 mt-2 font-bold">
                     +{task.reward_points} pts
                   </div>
-
                 </div>
 
                 {/* BUTTON */}
                 <button
-                  disabled={isCompleted || isCompleting}
+                  disabled={isCompleting}
                   onClick={() => handleComplete(task)}
                   className="px-4 py-2 rounded-xl text-xs font-bold"
                   style={{
-                    background:
-                      isCompleted
-                        ? '#1f2937'
-                        : `linear-gradient(135deg, ${color}, ${color}cc)`,
+                    background: `linear-gradient(135deg, ${color}, ${color}cc)`,
                     color: '#111'
                   }}
                 >
-                  {isCompleted ? '✓ Done' : 'Start'}
+                  {isCompleting ? '...' : 'Start'}
                 </button>
 
               </div>
@@ -223,7 +228,6 @@ export default function TasksPage() {
                   {message.text}
                 </div>
               )}
-
             </div>
           );
         })}

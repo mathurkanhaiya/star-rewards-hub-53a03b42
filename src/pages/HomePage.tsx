@@ -101,7 +101,7 @@ export default function HomePage() {
     await refreshBalance();
 
     setCoinBurst(true);
-    setDailyMessage("+50 pts 🎬 (Adsgram)");
+    setDailyMessage("+50 pts");
 
     setTimeout(() => setCoinBurst(false), 1200);
     setTimeout(() => setDailyMessage(""), 3000);
@@ -130,7 +130,7 @@ export default function HomePage() {
       await refreshBalance();
 
       setCoinBurst(true);
-      setDailyMessage("+25 pts 💰 (Monetag)");
+      setDailyMessage("+25 pts");
 
       setTimeout(() => setCoinBurst(false), 1200);
       setTimeout(() => setDailyMessage(""), 3000);
@@ -282,8 +282,8 @@ export default function HomePage() {
         {adLoading
           ? "Loading Ad..."
           : adNetwork === "adsgram"
-          ? "🎬 Watch Adsgram Ad (+50)"
-          : "💰 Watch Monetag Ad (+25)"}
+          ? "🎬 Watch Ad"
+          : "🎬 Watch Ad"}
       </button>
 
       {/* DAILY */}

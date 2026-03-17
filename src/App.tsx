@@ -100,14 +100,16 @@ if (!isTelegram) {
   }
 
   /* BAN CHECK */
-  /* BAN CHECK */
 if (user?.is_banned) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative overflow-hidden">
+    <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 bg-black">
 
-      <div className="absolute inset-0 bg-red-500/10 blur-3xl animate-pulse"></div>
-
-      <div className="text-7xl mb-4">🚫</div>
+      {/* GIF */}
+      <img
+        src="https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773769725182-0fda5970.gif"
+        alt="Banned"
+        className="w-40 h-40 mb-6"
+      />
 
       <h1 className="text-3xl font-extrabold text-red-500 mb-2">
         ACCOUNT BANNED

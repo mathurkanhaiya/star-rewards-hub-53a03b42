@@ -84,8 +84,10 @@ export default function HomePage() {
 
   const [activeTab, setActiveTab] = useState<"earn" | "history">("earn");
 
-  // 🔥 MAIN LOGIC: alternate ads
+  // 🔥 Smart Ad System
   const [adNetwork, setAdNetwork] = useState<"adsgram" | "monetag">("adsgram");
+  const [lastAdTime, setLastAdTime] = useState(0);
+  const COOLDOWN = 8000; // 8 sec anti-spam
 
   /* ===============================
      ADSGRAM REWARD
@@ -104,7 +106,6 @@ export default function HomePage() {
     setTimeout(() => setCoinBurst(false), 1200);
     setTimeout(() => setDailyMessage(""), 3000);
 
-    // 👉 Next = Monetag
     setAdNetwork("monetag");
   }, [user, refreshBalance]);
 
@@ -114,9 +115,13 @@ export default function HomePage() {
      MONETAG REWARD
   =================================*/
   const showMonetagAd = async () => {
-    if (!user) return;
+    if (!user) return false;
 
     try {
+      if (!(window as any).show_10742752) {
+        throw new Error("Monetag not loaded");
+      }
+
       await (window as any).show_10742752();
 
       triggerHaptic("success");
@@ -130,13 +135,12 @@ export default function HomePage() {
       setTimeout(() => setCoinBurst(false), 1200);
       setTimeout(() => setDailyMessage(""), 3000);
 
-      // 👉 Next = Adsgram
       setAdNetwork("adsgram");
-    } catch (err) {
-      console.error("Monetag failed", err);
+      return true;
 
-      // ❗ fallback to Adsgram if Monetag fails
-      setAdNetwork("adsgram");
+    } catch (err) {
+      console.error("❌ Monetag failed", err);
+      return false;
     }
   };
 
@@ -234,13 +238,40 @@ export default function HomePage() {
       {/* WATCH AD */}
       <button
         onClick={async () => {
+          if (!user) return;
+
+          const now = Date.now();
+
+          // 🔒 Cooldown protection
+          if (now - lastAdTime < COOLDOWN) {
+            alert("⏳ Wait a few seconds before next ad");
+            return;
+          }
+
+          setLastAdTime(now);
+
           triggerHaptic("impact");
           setAdLoading(true);
 
-          if (adNetwork === "adsgram") {
-            await showAdsgramAd();
-          } else {
-            await showMonetagAd();
+          try {
+            if (adNetwork === "adsgram") {
+              await showAdsgramAd();
+            } else {
+              const success = await showMonetagAd();
+
+              if (!success) {
+                // fallback
+                await showAdsgramAd();
+              }
+            }
+          } catch (err) {
+            console.error("Ad error → fallback");
+
+            try {
+              await showAdsgramAd();
+            } catch {
+              alert("Ad failed. Try again later.");
+            }
           }
 
           setAdLoading(false);
@@ -305,6 +336,7 @@ export default function HomePage() {
       {/* EARN */}
       {activeTab === "earn" && (
         <div className="space-y-4 mb-6">
+          {/* ✅ KEEP THIS (Landing / Interstitial Ads) */}
           <AdsgramTask blockId="task-25198" />
         </div>
       )}

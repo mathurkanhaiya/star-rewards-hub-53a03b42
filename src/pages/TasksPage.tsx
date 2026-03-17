@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import { getTasks, getUserTasks, completeTask } from '@/lib/api';
 import { Task } from '@/types/telegram';
@@ -34,15 +34,19 @@ export default function TasksPage() {
   const [completing, setCompleting] = useState<string | null>(null);
   const [message, setMessage] = useState<{ id: string; text: string; success: boolean } | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, [user]);
-
+  /* ===============================
+     LOAD DATA
+  =================================*/
   async function loadData() {
+    if (!user) return;
+
+    setLoading(true);
+
     const [allTasks, userTasksList] = await Promise.all([
       getTasks(),
-      user ? getUserTasks(user.id) : Promise.resolve([]),
+      getUserTasks(user.id),
     ]);
 
     const completedIds = new Set(
@@ -51,52 +55,75 @@ export default function TasksPage() {
 
     setCompletedTaskIds(completedIds);
 
-    // 🔥 REMOVE COMPLETED TASKS HERE
-    const availableTasks = allTasks.filter(task => {
+    // 🔥 FILTER AVAILABLE TASKS
+    let available = allTasks.filter(task => {
       const isCompleted = completedIds.has(task.id);
       return task.is_repeatable || !isCompleted;
     });
 
-    setTasks(availableTasks);
+    // 🔥 SORT BY HIGHEST REWARD FIRST
+    available.sort((a, b) => b.reward_points - a.reward_points);
+
+    setTasks(available);
+    setLoading(false);
   }
 
+  useEffect(() => {
+    loadData();
+
+    // 🔄 AUTO REFRESH EVERY 30s
+    const interval = setInterval(() => {
+      loadData();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  /* ===============================
+     COMPLETE TASK
+  =================================*/
   async function handleComplete(task: Task) {
-    if (!user) return;
+    if (!user || completing) return;
 
     triggerHaptic();
     setCompleting(task.id);
 
-    if (task.link) {
-      if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.openTelegramLink(task.link);
-      } else {
-        window.open(task.link, '_blank');
+    try {
+      if (task.link) {
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.openTelegramLink(task.link);
+        } else {
+          window.open(task.link, '_blank');
+        }
       }
-    }
 
-    const result = await completeTask(user.id, task.id);
+      const result = await completeTask(user.id, task.id);
 
-    if (result.success) {
-      triggerHaptic('success');
+      if (result.success) {
+        triggerHaptic('success');
 
-      setMessage({
-        id: task.id,
-        text: `+${result.points} pts earned! 🎉`,
-        success: true
-      });
+        setMessage({
+          id: task.id,
+          text: `+${result.points} pts earned! 🎉`,
+          success: true
+        });
 
-      // 🔥 REMOVE TASK INSTANTLY FROM UI
-      setTasks(prev => prev.filter(t => t.id !== task.id));
+        // 🔥 REMOVE TASK INSTANTLY
+        setTasks(prev => prev.filter(t => t.id !== task.id));
 
-      setCompletedTaskIds(prev => new Set([...prev, task.id]));
+        setCompletedTaskIds(prev => new Set([...prev, task.id]));
 
-      await refreshBalance();
-    } else {
+        await refreshBalance();
+      } else {
+        throw new Error(result.message);
+      }
+
+    } catch (err: any) {
       triggerHaptic('error');
 
       setMessage({
         id: task.id,
-        text: result.message || 'Task failed',
+        text: err.message || 'Task failed',
         success: false
       });
     }
@@ -105,13 +132,20 @@ export default function TasksPage() {
     setTimeout(() => setMessage(null), 3000);
   }
 
-  const filters = ['all', 'social', 'daily', 'referral', 'video', 'special'];
-
-  const filtered =
-    filter === 'all'
+  /* ===============================
+     FILTER + MEMO
+  =================================*/
+  const filteredTasks = useMemo(() => {
+    return filter === 'all'
       ? tasks
       : tasks.filter(t => t.task_type === filter);
+  }, [tasks, filter]);
 
+  const filters = ['all', 'social', 'daily', 'referral', 'video', 'special'];
+
+  /* ===============================
+     UI
+  =================================*/
   return (
     <div className="px-4 pb-28 text-white">
 
@@ -146,16 +180,24 @@ export default function TasksPage() {
         ))}
       </div>
 
+      {/* LOADING */}
+      {loading && (
+        <div className="text-center text-gray-400 text-sm">
+          Loading tasks...
+        </div>
+      )}
+
+      {/* EMPTY */}
+      {!loading && filteredTasks.length === 0 && (
+        <div className="text-center text-gray-400 text-sm">
+          🎉 No tasks available right now
+        </div>
+      )}
+
       {/* TASK LIST */}
       <div className="space-y-4">
 
-        {filtered.length === 0 && (
-          <div className="text-center text-gray-400 text-sm">
-            🎉 No available tasks right now
-          </div>
-        )}
-
-        {filtered.map(task => {
+        {filteredTasks.map(task => {
           const isCompleting = completing === task.id;
           const color = TASK_COLORS[task.task_type] || '#facc15';
 
@@ -228,6 +270,7 @@ export default function TasksPage() {
                   {message.text}
                 </div>
               )}
+
             </div>
           );
         })}

@@ -74,7 +74,20 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"earn" | "history">("earn");
 
   /* ===============================
-     ADSGRAM (PRIMARY REWARD)
+     GLOBAL COOLDOWN (ANTI DOUBLE ADS)
+  =================================*/
+  const lastAdTime = useRef(0);
+
+  const canShowAd = () => {
+    return Date.now() - lastAdTime.current > 60000; // 60 sec
+  };
+
+  const markAdShown = () => {
+    lastAdTime.current = Date.now();
+  };
+
+  /* ===============================
+     ADSGRAM (PRIMARY)
   =================================*/
   const onAdReward = useCallback(async () => {
     if (!user) return;
@@ -94,29 +107,18 @@ export default function HomePage() {
   const { showAd } = useRewardedAd(onAdReward);
 
   /* ===============================
-     MONETAG (SECONDARY - SAFE)
+     MONETAG (FALLBACK ONLY)
   =================================*/
-  const lastMonetag = useRef(0);
-
-  const showMonetagAd = async () => {
+  const showMonetagFallback = async () => {
     if (!user) return;
-
-    // cooldown protection
-    if (Date.now() - lastMonetag.current < 60000) {
-      alert("⏳ Wait 1 min before next bonus ad");
-      return;
-    }
-
-    lastMonetag.current = Date.now();
 
     try {
       triggerHaptic("impact");
-      setAdLoading(true);
 
       (window as any).show_10742752({
         type: "inApp",
         inAppSettings: {
-          frequency: 1,
+          frequency: 0, // ❗ disable auto ads
           capping: 0,
           interval: 0,
           timeout: 0,
@@ -124,12 +126,11 @@ export default function HomePage() {
         },
       });
 
-      // simulate watch time
       await new Promise((res) => setTimeout(res, 4000));
 
       triggerHaptic("success");
 
-      await logAdWatch(user.id, "monetag_inapp", 30);
+      await logAdWatch(user.id, "monetag_fallback", 30);
       await refreshBalance();
 
       setCoinBurst(true);
@@ -137,8 +138,35 @@ export default function HomePage() {
 
       setTimeout(() => setCoinBurst(false), 1200);
       setTimeout(() => setDailyMessage(""), 3000);
+
     } catch (err) {
       console.error("Monetag error:", err);
+    }
+  };
+
+  /* ===============================
+     MAIN BUTTON LOGIC (FIXED)
+  =================================*/
+  const handleWatchAd = async () => {
+    if (!user) return;
+
+    if (!canShowAd()) {
+      alert("⏳ Please wait before next ad");
+      return;
+    }
+
+    markAdShown();
+
+    try {
+      setAdLoading(true);
+      triggerHaptic("impact");
+
+      await showAd(); // ✅ AdsGram first
+
+    } catch (err) {
+      console.log("AdsGram failed → Monetag fallback");
+
+      await showMonetagFallback(); // ✅ only if AdsGram fails
     } finally {
       setAdLoading(false);
     }
@@ -234,27 +262,13 @@ export default function HomePage() {
         <div className="text-xs text-gray-500 mt-1">Available Points</div>
       </div>
 
-      {/* ADSGRAM BUTTON */}
+      {/* SINGLE BUTTON (FIXED SYSTEM) */}
       <button
-        onClick={async () => {
-          triggerHaptic("impact");
-          setAdLoading(true);
-          await showAd();
-          setAdLoading(false);
-        }}
+        onClick={handleWatchAd}
         disabled={adLoading}
-        className="w-full rounded-3xl p-6 mb-4 font-bold text-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-black"
+        className="w-full rounded-3xl p-6 mb-6 font-bold text-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-black"
       >
-        {adLoading ? "Loading..." : "🎬 Watch Ad +50"}
-      </button>
-
-      {/* MONETAG BUTTON */}
-      <button
-        onClick={showMonetagAd}
-        disabled={adLoading}
-        className="w-full rounded-3xl p-5 mb-6 font-bold bg-gradient-to-r from-blue-500 to-cyan-500"
-      >
-        ⚡ Quick Bonus +30
+        {adLoading ? "Loading..." : "🎬 Watch Ad & Earn"}
       </button>
 
       {/* DAILY */}

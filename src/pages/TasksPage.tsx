@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import { getTasks, getUserTasks, completeTask } from '@/lib/api';
 import { Task } from '@/types/telegram';
+import PromoSection from '@/components/games/PromoSection';
 
 /* ===============================
    TELEGRAM HAPTIC
@@ -61,7 +62,7 @@ export default function TasksPage() {
       return task.is_repeatable || !isCompleted;
     });
 
-    // 🔥 SORT BY HIGHEST REWARD FIRST
+    // 🔥 SORT BY REWARD (HIGH → LOW)
     available.sort((a, b) => b.reward_points - a.reward_points);
 
     setTasks(available);
@@ -72,10 +73,7 @@ export default function TasksPage() {
     loadData();
 
     // 🔄 AUTO REFRESH EVERY 30s
-    const interval = setInterval(() => {
-      loadData();
-    }, 30000);
-
+    const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -133,7 +131,7 @@ export default function TasksPage() {
   }
 
   /* ===============================
-     FILTER + MEMO
+     FILTERED TASKS
   =================================*/
   const filteredTasks = useMemo(() => {
     return filter === 'all'
@@ -178,6 +176,11 @@ export default function TasksPage() {
             {f}
           </button>
         ))}
+      </div>
+
+      {/* 🔥 PROMO SECTION */}
+      <div className="mb-6">
+        <PromoSection />
       </div>
 
       {/* LOADING */}

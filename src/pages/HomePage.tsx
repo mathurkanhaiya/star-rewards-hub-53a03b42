@@ -7,7 +7,7 @@ import AdsgramTask from "@/components/AdsgramTask";
 /* ===============================
    TELEGRAM HAPTIC
 ================================ */
-function triggerHaptic(type:any) {
+function triggerHaptic(type: any) {
   if (typeof window !== "undefined" && (window as any).Telegram) {
     const tg = (window as any).Telegram.WebApp;
 
@@ -22,13 +22,11 @@ function triggerHaptic(type:any) {
 /* ===============================
    Animated Balance
 ================================ */
-function AnimatedNumber({ value }:any) {
-
-  const [display,setDisplay] = useState(value);
+function AnimatedNumber({ value }: any) {
+  const [display, setDisplay] = useState(value);
   const prev = useRef(value);
 
-  useEffect(()=>{
-
+  useEffect(() => {
     let start = prev.current;
     const diff = value - start;
 
@@ -37,125 +35,150 @@ function AnimatedNumber({ value }:any) {
 
     let step = 0;
 
-    const timer = setInterval(()=>{
-
+    const timer = setInterval(() => {
       step++;
       start += inc;
 
-      if(step >= steps){
+      if (step >= steps) {
         setDisplay(value);
         clearInterval(timer);
-      }else{
+      } else {
         setDisplay(Math.floor(start));
       }
-
-    },20);
+    }, 20);
 
     prev.current = value;
 
-    return ()=>clearInterval(timer);
-
-  },[value]);
+    return () => clearInterval(timer);
+  }, [value]);
 
   return <>{display.toLocaleString()}</>;
 }
 
-function formatCountdown(seconds:number){
-
+function formatCountdown(seconds: number) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
 
-  return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
+  return `${h.toString().padStart(2, "0")}:${m
+    .toString()
+    .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function HomePage(){
-
+export default function HomePage() {
   const { user, balance, settings, refreshBalance } = useApp();
 
-  const [dailyClaiming,setDailyClaiming] = useState(false);
-  const [dailyMessage,setDailyMessage] = useState("");
-
-  const [transactions,setTransactions] = useState<any[]>([]);
-  const [adLoading,setAdLoading] = useState(false);
-
-  const [dailyCooldown,setDailyCooldown] = useState(0);
-  const [coinBurst,setCoinBurst] = useState(false);
-
-  const [activeTab,setActiveTab] = useState<"earn"|"history">("earn");
+  const [dailyClaiming, setDailyClaiming] = useState(false);
+  const [dailyMessage, setDailyMessage] = useState("");
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [adLoading, setAdLoading] = useState(false);
+  const [dailyCooldown, setDailyCooldown] = useState(0);
+  const [coinBurst, setCoinBurst] = useState(false);
+  const [activeTab, setActiveTab] = useState<"earn" | "history">("earn");
 
   /* ===============================
      ADSGRAM REWARDED
   =================================*/
-
-  const onAdReward = useCallback(async ()=>{
-
-    if(!user) return;
+  const onAdReward = useCallback(async () => {
+    if (!user) return;
 
     triggerHaptic("success");
 
-    await logAdWatch(user.id,"adsgram_reward",50);
-
+    await logAdWatch(user.id, "adsgram_reward", 50);
     await refreshBalance();
 
     setCoinBurst(true);
     setDailyMessage("+50 pts 🎬");
 
-    setTimeout(()=>setCoinBurst(false),1200);
-    setTimeout(()=>setDailyMessage(""),3000);
-
-  },[user,refreshBalance]);
+    setTimeout(() => setCoinBurst(false), 1200);
+    setTimeout(() => setDailyMessage(""), 3000);
+  }, [user, refreshBalance]);
 
   const { showAd } = useRewardedAd(onAdReward);
 
   /* ===============================
+     MONETAG REWARDED POPUP
+  =================================*/
+  const lastMonetag = useRef(0);
+
+  const showMonetagAd = async () => {
+    if (!user) return;
+
+    if (Date.now() - lastMonetag.current < 45000) {
+      alert("⏳ Wait before next bonus ad");
+      return;
+    }
+
+    lastMonetag.current = Date.now();
+
+    try {
+      triggerHaptic("impact");
+      setAdLoading(true);
+
+      await (window as any).show_10742752("pop");
+
+      // reward user
+      triggerHaptic("success");
+
+      await logAdWatch(user.id, "monetag_reward", 40);
+      await refreshBalance();
+
+      setCoinBurst(true);
+      setDailyMessage("+40 pts 💎");
+
+      setTimeout(() => setCoinBurst(false), 1200);
+      setTimeout(() => setDailyMessage(""), 3000);
+    } catch (err) {
+      console.error("Monetag error:", err);
+    } finally {
+      setAdLoading(false);
+    }
+  };
+
+  /* ===============================
      LOAD DATA
   =================================*/
-
-  useEffect(()=>{
-
-    if(!user) return;
+  useEffect(() => {
+    if (!user) return;
 
     getTransactions(user.id).then(setTransactions);
     checkDailyCooldown();
+  }, [user]);
 
-  },[user]);
-
-  async function checkDailyCooldown(){
-
-    if(!user) return;
+  async function checkDailyCooldown() {
+    if (!user) return;
 
     const claim = await getDailyClaim(user.id);
 
-    if(claim){
-
+    if (claim) {
       const now = new Date();
 
       const midnightUTC = new Date(
-        Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1)
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() + 1
+        )
       );
 
       const remaining = Math.max(
         0,
-        Math.floor((midnightUTC.getTime() - now.getTime())/1000)
+        Math.floor((midnightUTC.getTime() - now.getTime()) / 1000)
       );
 
       setDailyCooldown(remaining);
     }
   }
 
-  async function handleDailyClaim(){
-
-    if(!user || dailyCooldown>0) return;
+  async function handleDailyClaim() {
+    if (!user || dailyCooldown > 0) return;
 
     triggerHaptic("impact");
-
     setDailyClaiming(true);
 
     const result = await claimDailyReward(user.id);
 
-    if(result.success){
-
+    if (result.success) {
       triggerHaptic("success");
 
       setDailyMessage(`+${result.points} pts 🔥`);
@@ -164,171 +187,145 @@ export default function HomePage(){
       const now = new Date();
 
       const midnightUTC = new Date(
-        Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1)
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate() + 1
+        )
       );
 
       setDailyCooldown(
-        Math.floor((midnightUTC.getTime()-now.getTime())/1000)
+        Math.floor((midnightUTC.getTime() - now.getTime()) / 1000)
       );
 
       await refreshBalance();
 
-      setTimeout(()=>setCoinBurst(false),1200);
-
-    }else{
-
+      setTimeout(() => setCoinBurst(false), 1200);
+    } else {
       triggerHaptic("error");
       setDailyMessage(result.message || "Already claimed!");
       await checkDailyCooldown();
-
     }
 
     setDailyClaiming(false);
-
-    setTimeout(()=>setDailyMessage(""),3000);
+    setTimeout(() => setDailyMessage(""), 3000);
   }
 
-  return(
+  return (
+    <div className="px-4 pb-28 text-white">
+      {/* BALANCE */}
+      <div className="rounded-3xl p-6 mb-6 text-center bg-gradient-to-br from-slate-900 to-slate-800 border border-yellow-400/20">
+        {coinBurst && <div className="text-4xl animate-bounce">💰</div>}
 
-<div className="px-4 pb-28 text-white">
+        <div className="text-xs text-gray-400 mb-1">Total Balance</div>
 
-{/* BALANCE CARD */}
+        <div className="text-5xl font-black text-yellow-400">
+          <AnimatedNumber value={balance?.points || 0} />
+        </div>
 
-<div className="rounded-3xl p-6 mb-6 text-center bg-gradient-to-br from-slate-900 to-slate-800 border border-yellow-400/20">
+        <div className="text-xs text-gray-500 mt-1">
+          Available Points
+        </div>
+      </div>
 
-{coinBurst && <div className="text-4xl animate-bounce">💰</div>}
+      {/* ADSGRAM BUTTON */}
+      <button
+        onClick={async () => {
+          triggerHaptic("impact");
+          setAdLoading(true);
+          await showAd();
+          setAdLoading(false);
+        }}
+        disabled={adLoading}
+        className="w-full rounded-3xl p-6 mb-4 font-bold text-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg active:scale-95"
+      >
+        {adLoading ? "Loading Ad..." : "🎬 Watch Ad +50"}
+      </button>
 
-<div className="text-xs text-gray-400 mb-1">Total Balance</div>
+      {/* MONETAG BUTTON */}
+      <button
+        onClick={showMonetagAd}
+        disabled={adLoading}
+        className="w-full rounded-3xl p-5 mb-6 font-bold text-md bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg active:scale-95"
+      >
+        💎 Bonus Ad +40
+      </button>
 
-<div className="text-5xl font-black text-yellow-400">
-<AnimatedNumber value={balance?.points || 0}/>
-</div>
+      {/* DAILY */}
+      <div className="p-5 mb-6 flex justify-between bg-slate-800 rounded-2xl">
+        <div>
+          <div className="font-bold">🎁 Daily Reward</div>
+          <div className="text-xs text-gray-400">
+            {dailyMessage ||
+              (dailyCooldown > 0
+                ? `⏳ ${formatCountdown(dailyCooldown)}`
+                : `+${settings?.daily_bonus_base || 100} pts`)}
+          </div>
+        </div>
 
-<div className="text-xs text-gray-500 mt-1">Available Points</div>
+        <button
+          onClick={handleDailyClaim}
+          disabled={dailyClaiming || dailyCooldown > 0}
+          className="px-5 py-2 bg-green-500 rounded-xl font-bold"
+        >
+          {dailyCooldown > 0 ? "Locked" : "Claim"}
+        </button>
+      </div>
 
-</div>
+      {/* TABS */}
+      <div className="flex mb-4 bg-slate-900 rounded-xl p-1">
+        <button
+          onClick={() => setActiveTab("earn")}
+          className={`flex-1 py-2 rounded-lg font-bold ${
+            activeTab === "earn"
+              ? "bg-yellow-400 text-black"
+              : "text-gray-400"
+          }`}
+        >
+          Earn
+        </button>
 
-{/* WATCH AD */}
+        <button
+          onClick={() => setActiveTab("history")}
+          className={`flex-1 py-2 rounded-lg font-bold ${
+            activeTab === "history"
+              ? "bg-yellow-400 text-black"
+              : "text-gray-400"
+          }`}
+        >
+          History
+        </button>
+      </div>
 
-<button
-onClick={async()=>{
-triggerHaptic("impact");
-setAdLoading(true);
-await showAd();
-setAdLoading(false);
-}}
-disabled={adLoading}
-className="w-full rounded-3xl p-6 mb-6 font-bold text-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-lg active:scale-95"
->
+      {/* EARN */}
+      {activeTab === "earn" && (
+        <div className="space-y-4 mb-6">
+          <AdsgramTask blockId="task-25198" />
+        </div>
+      )}
 
-{adLoading ? "Loading Ad..." : "🎬 Watch Ad & Earn +50"}
+      {/* HISTORY */}
+      {activeTab === "history" && (
+        <div className="space-y-3">
+          {transactions.length === 0 && (
+            <div className="text-gray-400 text-center">
+              No transactions yet
+            </div>
+          )}
 
-</button>
-
-{/* DAILY REWARD */}
-
-<div className="p-5 mb-6 flex justify-between bg-slate-800 rounded-2xl">
-
-<div>
-
-<div className="font-bold">🎁 Daily Reward</div>
-
-<div className="text-xs text-gray-400">
-
-{dailyMessage ||
-(dailyCooldown>0
-? `⏳ ${formatCountdown(dailyCooldown)}`
-: `+${settings?.daily_bonus_base || 100} pts`)
-}
-
-</div>
-
-</div>
-
-<button
-onClick={handleDailyClaim}
-disabled={dailyClaiming || dailyCooldown>0}
-className="px-5 py-2 bg-green-500 rounded-xl font-bold"
->
-
-{dailyCooldown>0 ? "Locked" : "Claim"}
-
-</button>
-
-</div>
-
-{/* TASK TABS */}
-
-<div className="flex mb-4 bg-slate-900 rounded-xl p-1">
-
-<button
-onClick={()=>setActiveTab("earn")}
-className={`flex-1 py-2 rounded-lg font-bold ${
-activeTab==="earn"
-? "bg-yellow-400 text-black"
-: "text-gray-400"
-}`}
->
-Earn
-</button>
-
-<button
-onClick={()=>setActiveTab("history")}
-className={`flex-1 py-2 rounded-lg font-bold ${
-activeTab==="history"
-? "bg-yellow-400 text-black"
-: "text-gray-400"
-}`}
->
-History
-</button>
-
-</div>
-
-{/* EARN TAB */}
-
-{activeTab==="earn" && (
-
-<div className="space-y-4 mb-6">
-
-<AdsgramTask blockId="task-25198" />
-
-</div>
-
-)}
-
-{/* HISTORY TAB */}
-
-{activeTab==="history" && (
-
-<div className="space-y-3">
-
-{transactions.length===0 && (
-<div className="text-gray-400 text-center">
-No transactions yet
-</div>
-)}
-
-{transactions.map((t:any)=>(
-<div
-key={t.id}
-className="p-4 rounded-xl bg-slate-800 flex justify-between"
->
-
-<div className="text-sm">{t.type}</div>
-
-<div className="text-yellow-400 font-bold">
-+{t.points}
-</div>
-
-</div>
-))}
-
-</div>
-
-)}
-
-</div>
-
-);
+          {transactions.map((t: any) => (
+            <div
+              key={t.id}
+              className="p-4 rounded-xl bg-slate-800 flex justify-between"
+            >
+              <div className="text-sm">{t.type}</div>
+              <div className="text-yellow-400 font-bold">
+                +{t.points}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -100,50 +100,26 @@ if (!isTelegram) {
   }
 
   /* BAN CHECK */
-  if (user?.is_banned) {
-    const contactAdmin = () => {
-      if ((window as any).Telegram?.WebApp) {
-        (window as any).Telegram.WebApp.openTelegramLink("https://t.me/im_poorman");
-      } else {
-        window.open("https://t.me/im_poorman", "_blank");
-      }
-    };
+  /* BAN CHECK */
+if (user?.is_banned) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative overflow-hidden">
 
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-center px-6 relative overflow-hidden">
+      <div className="absolute inset-0 bg-red-500/10 blur-3xl animate-pulse"></div>
 
-        <div className="absolute inset-0 bg-red-500/10 blur-3xl animate-pulse"></div>
+      <div className="text-7xl mb-4">🚫</div>
 
-        <div className="text-7xl mb-4 animate-bounce">🚫</div>
+      <h1 className="text-3xl font-extrabold text-red-500 mb-2">
+        ACCOUNT BANNED
+      </h1>
 
-        <h1 className="text-3xl font-extrabold text-red-500 mb-2 animate-pulse">
-          ACCOUNT BANNED
-        </h1>
+      <p className="text-sm text-gray-300">
+        Violated rules
+      </p>
 
-        <p className="text-sm text-gray-300 max-w-xs">
-          Your account has been suspended for violating our platform rules.
-        </p>
-
-        {(user as any)?.ban_reason && (
-          <p className="text-xs text-red-300 mt-3">
-            Reason: {(user as any).ban_reason}
-          </p>
-        )}
-
-        <button
-          onClick={contactAdmin}
-          className="mt-6 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition transform hover:scale-105 shadow-lg"
-        >
-          Contact Admin
-        </button>
-
-        <p className="text-xs text-gray-500 mt-4">
-          If you believe this was a mistake, contact support.
-        </p>
-
-      </div>
-    );
-  }
+    </div>
+  );
+}
 
   const renderPage = () => {
     switch (currentPage) {

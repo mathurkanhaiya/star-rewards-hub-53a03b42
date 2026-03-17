@@ -14,12 +14,60 @@ type Page =
   | 'dice'
   | 'cardflip'
   | 'numberguess'
-  | 'luckybox';
+  | 'luckybox'
+  | 'specialad'; // ✅ added
 
 interface GamesMenuProps {
   onNavigate: (page: Page) => void;
 }
 
+// 🌍 Allowed countries
+const ALLOWED_COUNTRIES = ['US', 'MX', 'FR', 'DE', 'GB'];
+
+// 🌍 Get user country (IP-based)
+async function getUserCountry(): Promise<string | null> {
+  try {
+    const res = await fetch('https://ipapi.co/json/');
+    const data = await res.json();
+    return data.country_code;
+  } catch (err) {
+    console.error("Geo error:", err);
+    return null;
+  }
+}
+
+// 💰 Reward logic
+function rewardUser() {
+  let coins = parseInt(localStorage.getItem("coins") || "0");
+  coins += 100;
+  localStorage.setItem("coins", coins);
+}
+
+// 🎯 Special Ad Handler
+async function handleSpecialAd() {
+  try {
+    const country = await getUserCountry();
+
+    if (!country || !ALLOWED_COUNTRIES.includes(country)) {
+      alert("❌ This task is only available in USA, Mexico, France, Germany, UK.\nUse VPN if needed.");
+      return;
+    }
+
+    // ✅ Show ad
+    await show_10742752();
+
+    // ✅ Reward
+    rewardUser();
+
+    alert("🎉 You earned 100 coins!");
+
+  } catch (err) {
+    console.error(err);
+    alert("Ad not completed or failed.");
+  }
+}
+
+// 🎮 Games list
 const games = [
   {
     id: 'tower' as Page,
@@ -56,6 +104,13 @@ const games = [
     desc: 'Watch an ad, guess the hidden number, closer = more points!',
     color: 'cyan',
   },
+  {
+    id: 'specialad' as Page,
+    icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+    name: 'Special Ad Task',
+    desc: 'Only available in selected countries. Use VPN if needed.',
+    color: 'gold',
+  },
 ];
 
 function GamesMenu({ onNavigate }: GamesMenuProps) {
@@ -83,7 +138,13 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
         {games.map((game) => (
           <button
             key={game.id}
-            onClick={() => onNavigate(game.id)}
+            onClick={() => {
+              if (game.id === 'specialad') {
+                handleSpecialAd(); // ✅ special logic
+              } else {
+                onNavigate(game.id);
+              }
+            }}
             className="game-card w-full rounded-2xl p-5 text-left"
             style={{ border: `1px solid hsl(var(--${game.color}) / 0.3)` }}
           >

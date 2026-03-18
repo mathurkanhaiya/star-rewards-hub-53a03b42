@@ -50,7 +50,7 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
   const isAllowed = country && ALLOWED_COUNTRIES.includes(country);
 
   /* ===============================
-     🎬 MAIN AD (+30)
+     🎬 MAIN AD (+15)
   ================================ */
   const handleMainAd = async () => {
     if (!user) return;
@@ -73,10 +73,10 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
 
       await (window as any).show_10742752();
 
-      await logAdWatch(user.id, "special_ad_easy", 30);
+      await logAdWatch(user.id, "special_ad_easy", 15);
       await refreshBalance();
 
-      alert("🎉 +30 coins!");
+      alert("🎉 +15 coins!");
 
     } catch {
       alert("Ad not completed.");
@@ -86,7 +86,7 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
   };
 
   /* ===============================
-     ⚡ POPUP AD (+20)
+     ⚡ POPUP AD (+5)
   ================================ */
   const handlePopupAd = async () => {
     if (!user) return;
@@ -109,10 +109,10 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
 
       await (window as any).show_10742752('pop');
 
-      await logAdWatch(user.id, "popup_ad", 20);
+      await logAdWatch(user.id, "popup_ad", 5);
       await refreshBalance();
 
-      alert("⚡ +20 coins!");
+      alert("⚡ +5 coins!");
 
     } catch {
       alert("Popup ad failed.");
@@ -184,10 +184,10 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
         <div className="flex justify-between items-center">
           <div>
             <div className="font-bold text-lg">🎬 Easy Ad</div>
-            <div className="text-xs text-gray-400">Earn 30 coins</div>
+            <div className="text-xs text-gray-400">Earn 15 coins</div>
           </div>
           <div className="text-green-400 font-bold">
-            {loadingAd ? "..." : "+30"}
+            {loadingAd ? "..." : "+15"}
           </div>
         </div>
       </div>
@@ -204,10 +204,10 @@ function GamesMenu({ onNavigate }: GamesMenuProps) {
         <div className="flex justify-between items-center">
           <div>
             <div className="font-bold text-lg">⚡ Popup Ad</div>
-            <div className="text-xs text-gray-400">Earn 20 coins</div>
+            <div className="text-xs text-gray-400">Earn 5 coins</div>
           </div>
           <div className="text-blue-400 font-bold">
-            {loadingAd ? "..." : "+20"}
+            {loadingAd ? "..." : "+5"}
           </div>
         </div>
       </div>

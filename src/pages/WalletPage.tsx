@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { submitWithdrawal } from '@/lib/api';
+import confetti from 'canvas-confetti';
 
 const TIERS = [
   { pts: 5000, ton: 0.05 },
@@ -25,6 +26,7 @@ export default function WalletPage() {
   const [selectedTier, setSelectedTier] = useState<any>(null);
   const [wallet, setWallet] = useState('');
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const pts = balance?.points || 0;
 
@@ -47,6 +49,20 @@ export default function WalletPage() {
       .then(({ count }) => setAdCount(count || 0));
   }, [user]);
 
+  /* 📋 AUTO PASTE WALLET */
+  async function pasteWallet() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (isValidTon(text)) {
+        setWallet(text);
+      } else {
+        setMessage('Clipboard has invalid wallet');
+      }
+    } catch {
+      setMessage('Clipboard access denied');
+    }
+  }
+
   /* 💰 WITHDRAW */
   async function handleWithdraw() {
     if (!selectedTier) return;
@@ -66,6 +82,8 @@ export default function WalletPage() {
       return;
     }
 
+    setLoading(true);
+
     const res = await submitWithdrawal(
       user.id,
       'ton',
@@ -73,8 +91,11 @@ export default function WalletPage() {
       wallet
     );
 
+    setLoading(false);
+
     if (res.success) {
-      setMessage('✅ Withdrawal successful');
+      confetti({ particleCount: 120, spread: 70 });
+      setMessage('✅ Success!');
       setSelectedTier(null);
       setWallet('');
       refreshBalance();
@@ -97,17 +118,18 @@ export default function WalletPage() {
       {/* GRID */}
       <div className="grid grid-cols-2 gap-3 mb-5">
         {TIERS.map((t, i) => {
-          const locked = pts < t.pts;
+          const locked = pts < t.pts || adCount < REQUIRED_ADS;
 
           return (
             <div
               key={i}
-              onClick={() => setSelectedTier(t)}
-              className="p-4 rounded-xl text-center cursor-pointer"
+              onClick={() => !locked && setSelectedTier(t)}
+              className="p-4 rounded-xl text-center transition-all"
               style={{
                 background: '#0f172a',
                 border: '1px solid #1e293b',
-                opacity: locked ? 0.5 : 1,
+                opacity: locked ? 0.4 : 1,
+                pointerEvents: locked ? 'none' : 'auto'
               }}
             >
               <div className="text-sm">{t.pts} pts</div>
@@ -119,18 +141,18 @@ export default function WalletPage() {
         })}
       </div>
 
-      {/* DAILY REQUIREMENT */}
+      {/* REQUIREMENT */}
       <div className="p-4 rounded-xl bg-[#0f172a] border mb-5">
         {adCount >= REQUIRED_ADS
-          ? '✅ Daily requirement completed'
-          : `🔒 Watch ${REQUIRED_ADS - adCount} more ads today`}
+          ? '✅ Ready to withdraw'
+          : `🔒 Watch ${REQUIRED_ADS - adCount} ads`}
       </div>
 
-      {/* POPUP */}
+      {/* 💎 POPUP */}
       {selectedTier && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-xl bg-black/40 flex items-center justify-center z-50">
 
-          <div className="bg-[#0f172a] p-5 rounded-2xl w-[90%] max-w-sm">
+          <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-5 rounded-2xl w-[90%] max-w-sm shadow-xl">
 
             <div className="text-lg font-bold mb-2">
               Withdraw {selectedTier.ton} TON
@@ -140,8 +162,16 @@ export default function WalletPage() {
               value={wallet}
               onChange={e => setWallet(e.target.value)}
               placeholder="Enter TON wallet"
-              className="w-full p-3 rounded bg-black mb-3"
+              className="w-full p-3 rounded bg-black/40 mb-2"
             />
+
+            {/* 📋 Paste Button */}
+            <button
+              onClick={pasteWallet}
+              className="text-xs text-blue-400 mb-3"
+            >
+              📋 Paste from clipboard
+            </button>
 
             <div className="text-xs mb-3 text-gray-400">
               Ads today: {adCount}/{REQUIRED_ADS}
@@ -155,9 +185,14 @@ export default function WalletPage() {
 
             <button
               onClick={handleWithdraw}
-              className="w-full py-3 bg-yellow-400 text-black rounded-xl font-bold"
+              disabled={loading}
+              className="w-full py-3 bg-yellow-400 text-black rounded-xl font-bold flex justify-center items-center"
             >
-              Confirm Withdraw
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                'Confirm Withdraw'
+              )}
             </button>
 
             <button

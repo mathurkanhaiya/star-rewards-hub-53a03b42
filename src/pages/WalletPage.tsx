@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { submitWithdrawal } from '@/lib/api';
-import confetti from 'canvas-confetti';
 
 const TIERS = [
   { pts: 5000, ton: 0.05 },
@@ -30,42 +29,68 @@ export default function WalletPage() {
 
   const pts = balance?.points || 0;
 
-  /* ✅ DAILY ADS */
+  /* ✅ SAFE DAILY ADS FETCH */
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
 
-    const todayUTC = new Date();
-    const startOfDay = new Date(Date.UTC(
-      todayUTC.getUTCFullYear(),
-      todayUTC.getUTCMonth(),
-      todayUTC.getUTCDate()
-    )).toISOString();
+    async function fetchAds() {
+      try {
+        const todayUTC = new Date();
+        const startOfDay = new Date(Date.UTC(
+          todayUTC.getUTCFullYear(),
+          todayUTC.getUTCMonth(),
+          todayUTC.getUTCDate()
+        )).toISOString();
 
-    supabase
-      .from('ad_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', startOfDay)
-      .then(({ count }) => setAdCount(count || 0));
+        const { count, error } = await supabase
+          .from('ad_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', startOfDay);
+
+        if (error) {
+          console.error('Ad fetch error:', error);
+          return;
+        }
+
+        setAdCount(count || 0);
+      } catch (err) {
+        console.error('Unexpected error:', err);
+      }
+    }
+
+    fetchAds();
   }, [user]);
 
-  /* 📋 AUTO PASTE WALLET */
+  /* 📋 SAFE CLIPBOARD */
   async function pasteWallet() {
     try {
+      if (!navigator.clipboard) {
+        setMessage('Clipboard not supported');
+        return;
+      }
+
       const text = await navigator.clipboard.readText();
+
       if (isValidTon(text)) {
         setWallet(text);
+        setMessage('');
       } else {
-        setMessage('Clipboard has invalid wallet');
+        setMessage('Invalid wallet in clipboard');
       }
-    } catch {
-      setMessage('Clipboard access denied');
+    } catch (err) {
+      console.error(err);
+      setMessage('Clipboard denied');
     }
   }
 
   /* 💰 WITHDRAW */
   async function handleWithdraw() {
     if (!selectedTier) return;
+    if (!user?.id) {
+      setMessage('User not loaded');
+      return;
+    }
 
     if (!isValidTon(wallet)) {
       setMessage('Invalid TON wallet ❌');
@@ -84,24 +109,35 @@ export default function WalletPage() {
 
     setLoading(true);
 
-    const res = await submitWithdrawal(
-      user.id,
-      'ton',
-      selectedTier.pts,
-      wallet
-    );
+    try {
+      const res = await submitWithdrawal(
+        user.id,
+        'ton',
+        selectedTier.pts,
+        wallet
+      );
+
+      if (res?.success) {
+        // 🎉 fallback confetti (safe)
+        if (typeof window !== 'undefined') {
+          import('canvas-confetti').then(mod => {
+            mod.default({ particleCount: 100, spread: 70 });
+          });
+        }
+
+        setMessage('✅ Success!');
+        setSelectedTier(null);
+        setWallet('');
+        refreshBalance();
+      } else {
+        setMessage(res?.message || 'Failed');
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage('Something went wrong');
+    }
 
     setLoading(false);
-
-    if (res.success) {
-      confetti({ particleCount: 120, spread: 70 });
-      setMessage('✅ Success!');
-      setSelectedTier(null);
-      setWallet('');
-      refreshBalance();
-    } else {
-      setMessage('Failed');
-    }
   }
 
   return (
@@ -123,13 +159,18 @@ export default function WalletPage() {
           return (
             <div
               key={i}
-              onClick={() => !locked && setSelectedTier(t)}
+              onClick={() => {
+                if (!locked) {
+                  setSelectedTier(t);
+                  setMessage('');
+                }
+              }}
               className="p-4 rounded-xl text-center transition-all"
               style={{
                 background: '#0f172a',
                 border: '1px solid #1e293b',
                 opacity: locked ? 0.4 : 1,
-                pointerEvents: locked ? 'none' : 'auto'
+                cursor: locked ? 'not-allowed' : 'pointer'
               }}
             >
               <div className="text-sm">{t.pts} pts</div>
@@ -148,7 +189,7 @@ export default function WalletPage() {
           : `🔒 Watch ${REQUIRED_ADS - adCount} ads`}
       </div>
 
-      {/* 💎 POPUP */}
+      {/* POPUP */}
       {selectedTier && (
         <div className="fixed inset-0 backdrop-blur-xl bg-black/40 flex items-center justify-center z-50">
 
@@ -165,12 +206,11 @@ export default function WalletPage() {
               className="w-full p-3 rounded bg-black/40 mb-2"
             />
 
-            {/* 📋 Paste Button */}
             <button
               onClick={pasteWallet}
               className="text-xs text-blue-400 mb-3"
             >
-              📋 Paste from clipboard
+              📋 Paste wallet
             </button>
 
             <div className="text-xs mb-3 text-gray-400">
@@ -199,6 +239,7 @@ export default function WalletPage() {
               onClick={() => {
                 setSelectedTier(null);
                 setMessage('');
+                setWallet('');
               }}
               className="w-full mt-2 text-sm text-gray-400"
             >

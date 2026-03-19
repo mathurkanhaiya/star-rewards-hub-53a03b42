@@ -10,9 +10,20 @@ import { useRewardedAd } from "@/hooks/useAdsgram";
 import AdsgramTask from "@/components/AdsgramTask";
 
 /* ===============================
+   TYPES
+================================ */
+type HapticType = "impact" | "success" | "error";
+
+interface Transaction {
+  id: string;
+  type: string;
+  points: number;
+}
+
+/* ===============================
    TELEGRAM HAPTIC
 ================================ */
-function triggerHaptic(type: any) {
+function triggerHaptic(type: HapticType) {
   if (typeof window !== "undefined" && (window as any).Telegram) {
     const tg = (window as any).Telegram.WebApp;
 
@@ -27,9 +38,9 @@ function triggerHaptic(type: any) {
 /* ===============================
    Animated Balance
 ================================ */
-function AnimatedNumber({ value }: any) {
-  const [display, setDisplay] = useState(value);
-  const prev = useRef(value);
+function AnimatedNumber({ value = 0 }: { value: number }) {
+  const [display, setDisplay] = useState<number>(value);
+  const prev = useRef<number>(value);
 
   useEffect(() => {
     let start = prev.current;
@@ -60,6 +71,9 @@ function AnimatedNumber({ value }: any) {
   return <>{display.toLocaleString()}</>;
 }
 
+/* ===============================
+   UTILS
+================================ */
 function formatCountdown(seconds: number) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -70,13 +84,16 @@ function formatCountdown(seconds: number) {
     .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
+/* ===============================
+   MAIN COMPONENT
+================================ */
 export default function HomePage() {
   const { user, balance, settings, refreshBalance } = useApp();
 
   const [dailyClaiming, setDailyClaiming] = useState(false);
   const [dailyMessage, setDailyMessage] = useState("");
 
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [adLoading, setAdLoading] = useState(false);
 
   const [dailyCooldown, setDailyCooldown] = useState(0);
@@ -84,10 +101,10 @@ export default function HomePage() {
 
   const [activeTab, setActiveTab] = useState<"earn" | "history">("earn");
 
-  // 🔥 Smart Ad System
   const [adNetwork, setAdNetwork] = useState<"adsgram" | "monetag">("adsgram");
   const [lastAdTime, setLastAdTime] = useState(0);
-  const COOLDOWN = 8000; // 8 sec anti-spam
+
+  const COOLDOWN = 8000;
 
   /* ===============================
      ADSGRAM REWARD
@@ -112,9 +129,9 @@ export default function HomePage() {
   const { showAd: showAdsgramAd } = useRewardedAd(onAdsgramReward);
 
   /* ===============================
-     MONETAG REWARD
+     MONETAG
   =================================*/
-  const showMonetagAd = async () => {
+  const showMonetagAd = async (): Promise<boolean> => {
     if (!user) return false;
 
     try {
@@ -137,7 +154,6 @@ export default function HomePage() {
 
       setAdNetwork("adsgram");
       return true;
-
     } catch (err) {
       console.error("❌ Monetag failed", err);
       return false;
@@ -153,6 +169,19 @@ export default function HomePage() {
     getTransactions(user.id).then(setTransactions);
     checkDailyCooldown();
   }, [user]);
+
+  /* ===============================
+     COUNTDOWN TICKER ❗ FIX
+  =================================*/
+  useEffect(() => {
+    if (dailyCooldown <= 0) return;
+
+    const interval = setInterval(() => {
+      setDailyCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [dailyCooldown]);
 
   async function checkDailyCooldown() {
     if (!user) return;
@@ -242,14 +271,12 @@ export default function HomePage() {
 
           const now = Date.now();
 
-          // 🔒 Cooldown protection
           if (now - lastAdTime < COOLDOWN) {
             alert("⏳ Wait a few seconds before next ad");
             return;
           }
 
           setLastAdTime(now);
-
           triggerHaptic("impact");
           setAdLoading(true);
 
@@ -258,15 +285,9 @@ export default function HomePage() {
               await showAdsgramAd();
             } else {
               const success = await showMonetagAd();
-
-              if (!success) {
-                // fallback
-                await showAdsgramAd();
-              }
+              if (!success) await showAdsgramAd();
             }
-          } catch (err) {
-            console.error("Ad error → fallback");
-
+          } catch {
             try {
               await showAdsgramAd();
             } catch {
@@ -336,7 +357,6 @@ export default function HomePage() {
       {/* EARN */}
       {activeTab === "earn" && (
         <div className="space-y-4 mb-6">
-          {/* ✅ KEEP THIS (Landing / Interstitial Ads) */}
           <AdsgramTask blockId="task-25198" />
         </div>
       )}
@@ -350,7 +370,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {transactions.map((t: any) => (
+          {transactions.map((t) => (
             <div
               key={t.id}
               className="p-4 rounded-xl bg-slate-800 flex justify-between"

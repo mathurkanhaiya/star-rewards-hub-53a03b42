@@ -25,72 +25,31 @@ export default function WalletPage() {
   const [selectedTier, setSelectedTier] = useState<any>(null);
   const [wallet, setWallet] = useState('');
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
 
   const pts = balance?.points || 0;
 
-  /* ✅ SAFE DAILY ADS FETCH */
+  /* ✅ DAILY ADS */
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user) return;
 
-    async function fetchAds() {
-      try {
-        const todayUTC = new Date();
-        const startOfDay = new Date(Date.UTC(
-          todayUTC.getUTCFullYear(),
-          todayUTC.getUTCMonth(),
-          todayUTC.getUTCDate()
-        )).toISOString();
+    const todayUTC = new Date();
+    const startOfDay = new Date(Date.UTC(
+      todayUTC.getUTCFullYear(),
+      todayUTC.getUTCMonth(),
+      todayUTC.getUTCDate()
+    )).toISOString();
 
-        const { count, error } = await supabase
-          .from('ad_logs')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .gte('created_at', startOfDay);
-
-        if (error) {
-          console.error('Ad fetch error:', error);
-          return;
-        }
-
-        setAdCount(count || 0);
-      } catch (err) {
-        console.error('Unexpected error:', err);
-      }
-    }
-
-    fetchAds();
+    supabase
+      .from('ad_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', startOfDay)
+      .then(({ count }) => setAdCount(count || 0));
   }, [user]);
-
-  /* 📋 SAFE CLIPBOARD */
-  async function pasteWallet() {
-    try {
-      if (!navigator.clipboard) {
-        setMessage('Clipboard not supported');
-        return;
-      }
-
-      const text = await navigator.clipboard.readText();
-
-      if (isValidTon(text)) {
-        setWallet(text);
-        setMessage('');
-      } else {
-        setMessage('Invalid wallet in clipboard');
-      }
-    } catch (err) {
-      console.error(err);
-      setMessage('Clipboard denied');
-    }
-  }
 
   /* 💰 WITHDRAW */
   async function handleWithdraw() {
     if (!selectedTier) return;
-    if (!user?.id) {
-      setMessage('User not loaded');
-      return;
-    }
 
     if (!isValidTon(wallet)) {
       setMessage('Invalid TON wallet ❌');
@@ -107,37 +66,21 @@ export default function WalletPage() {
       return;
     }
 
-    setLoading(true);
+    const res = await submitWithdrawal(
+      user.id,
+      'ton',
+      selectedTier.pts,
+      wallet
+    );
 
-    try {
-      const res = await submitWithdrawal(
-        user.id,
-        'ton',
-        selectedTier.pts,
-        wallet
-      );
-
-      if (res?.success) {
-        // 🎉 fallback confetti (safe)
-        if (typeof window !== 'undefined') {
-          import('canvas-confetti').then(mod => {
-            mod.default({ particleCount: 100, spread: 70 });
-          });
-        }
-
-        setMessage('✅ Success!');
-        setSelectedTier(null);
-        setWallet('');
-        refreshBalance();
-      } else {
-        setMessage(res?.message || 'Failed');
-      }
-    } catch (err) {
-      console.error(err);
-      setMessage('Something went wrong');
+    if (res.success) {
+      setMessage('✅ Withdrawal successful');
+      setSelectedTier(null);
+      setWallet('');
+      refreshBalance();
+    } else {
+      setMessage('Failed');
     }
-
-    setLoading(false);
   }
 
   return (
@@ -154,23 +97,17 @@ export default function WalletPage() {
       {/* GRID */}
       <div className="grid grid-cols-2 gap-3 mb-5">
         {TIERS.map((t, i) => {
-          const locked = pts < t.pts || adCount < REQUIRED_ADS;
+          const locked = pts < t.pts;
 
           return (
             <div
               key={i}
-              onClick={() => {
-                if (!locked) {
-                  setSelectedTier(t);
-                  setMessage('');
-                }
-              }}
-              className="p-4 rounded-xl text-center transition-all"
+              onClick={() => setSelectedTier(t)}
+              className="p-4 rounded-xl text-center cursor-pointer"
               style={{
                 background: '#0f172a',
                 border: '1px solid #1e293b',
-                opacity: locked ? 0.4 : 1,
-                cursor: locked ? 'not-allowed' : 'pointer'
+                opacity: locked ? 0.5 : 1,
               }}
             >
               <div className="text-sm">{t.pts} pts</div>
@@ -182,18 +119,18 @@ export default function WalletPage() {
         })}
       </div>
 
-      {/* REQUIREMENT */}
+      {/* DAILY REQUIREMENT */}
       <div className="p-4 rounded-xl bg-[#0f172a] border mb-5">
         {adCount >= REQUIRED_ADS
-          ? '✅ Ready to withdraw'
-          : `🔒 Watch ${REQUIRED_ADS - adCount} ads`}
+          ? '✅ Daily requirement completed'
+          : `🔒 Watch ${REQUIRED_ADS - adCount} more ads today`}
       </div>
 
       {/* POPUP */}
       {selectedTier && (
-        <div className="fixed inset-0 backdrop-blur-xl bg-black/40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
 
-          <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-5 rounded-2xl w-[90%] max-w-sm shadow-xl">
+          <div className="bg-[#0f172a] p-5 rounded-2xl w-[90%] max-w-sm">
 
             <div className="text-lg font-bold mb-2">
               Withdraw {selectedTier.ton} TON
@@ -203,15 +140,8 @@ export default function WalletPage() {
               value={wallet}
               onChange={e => setWallet(e.target.value)}
               placeholder="Enter TON wallet"
-              className="w-full p-3 rounded bg-black/40 mb-2"
+              className="w-full p-3 rounded bg-black mb-3"
             />
-
-            <button
-              onClick={pasteWallet}
-              className="text-xs text-blue-400 mb-3"
-            >
-              📋 Paste wallet
-            </button>
 
             <div className="text-xs mb-3 text-gray-400">
               Ads today: {adCount}/{REQUIRED_ADS}
@@ -225,21 +155,15 @@ export default function WalletPage() {
 
             <button
               onClick={handleWithdraw}
-              disabled={loading}
-              className="w-full py-3 bg-yellow-400 text-black rounded-xl font-bold flex justify-center items-center"
+              className="w-full py-3 bg-yellow-400 text-black rounded-xl font-bold"
             >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                'Confirm Withdraw'
-              )}
+              Confirm Withdraw
             </button>
 
             <button
               onClick={() => {
                 setSelectedTier(null);
                 setMessage('');
-                setWallet('');
               }}
               className="w-full mt-2 text-sm text-gray-400"
             >

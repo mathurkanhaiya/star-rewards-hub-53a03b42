@@ -39,7 +39,6 @@ function AnimatedNumber({ value = 0 }: { value: number }) {
   useEffect(() => {
     let start = prev.current;
     const diff = value - start;
-
     const steps = 30;
     const inc = diff / steps;
 
@@ -89,18 +88,14 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"earn" | "history">("earn");
 
   const [adNetwork, setAdNetwork] = useState<"adsgram" | "monetag">("adsgram");
-
   const [lastAdTime, setLastAdTime] = useState<number>(0);
 
-  const COOLDOWN = 8000;
+  const COOLDOWN = 5000;
   const isAdRunning = useRef(false);
 
-  /* 🔥 reward detection */
   const rewardReceived = useRef(false);
 
-  /* ===============================
-     ADSGRAM
-  =================================*/
+  /* =============================== */
   const onAdsgramReward = useCallback(async () => {
     if (!user) return;
 
@@ -125,9 +120,7 @@ export default function HomePage() {
 
   const { showAd: showAdsgramAd } = useRewardedAd(onAdsgramReward);
 
-  /* ===============================
-     MONETAG
-  =================================*/
+  /* =============================== */
   const showMonetagAd = async (): Promise<boolean> => {
     if (!user) return false;
 
@@ -210,7 +203,7 @@ export default function HomePage() {
     const result = await claimDailyReward(user.id);
 
     if (result.success) {
-      setDailyMessage(`+${result.points} pts`);
+      setDailyMessage(`+${result.points} pts 🔥`);
       await refreshBalance();
     } else {
       setDailyMessage(result.message);
@@ -220,9 +213,7 @@ export default function HomePage() {
     setTimeout(() => setDailyMessage(""), 3000);
   }
 
-  /* ===============================
-     🔥 FIXED AD BUTTON
-  =================================*/
+  /* =============================== */
   async function handleAdClick() {
     if (!user) return;
     if (isAdRunning.current) return;
@@ -230,7 +221,7 @@ export default function HomePage() {
     const now = Date.now();
 
     if (now - lastAdTime < COOLDOWN) {
-      alert("⏳ Wait a few seconds before next ad");
+      alert("⏳ Wait a bit...");
       return;
     }
 
@@ -245,33 +236,18 @@ export default function HomePage() {
       if (adNetwork === "adsgram") {
         await showAdsgramAd();
 
-        // wait for callback
         await new Promise((res) => setTimeout(res, 3000));
 
         if (!rewardReceived.current) {
-          console.warn("⚠️ Adsgram failed → Monetag");
-
           const success = await showMonetagAd();
-
-          if (!success) {
-            await showAdsgramAd();
-          }
+          if (!success) await showAdsgramAd();
         }
       } else {
         const success = await showMonetagAd();
-
-        if (!success) {
-          await showAdsgramAd();
-        }
+        if (!success) await showAdsgramAd();
       }
-    } catch (err) {
-      console.error(err);
-
-      try {
-        await showAdsgramAd();
-      } catch {
-        alert("Ad failed");
-      }
+    } catch (e) {
+      console.error(e);
     } finally {
       setAdLoading(false);
       isAdRunning.current = false;
@@ -280,38 +256,56 @@ export default function HomePage() {
 
   /* =============================== */
   return (
-    <div className="px-4 pb-28 text-white">
-      <div className="rounded-3xl p-6 mb-6 text-center bg-slate-900">
+    <div className="px-4 pb-28 text-white bg-gradient-to-b from-black via-slate-900 to-black min-h-screen">
+      
+      {/* BALANCE CARD */}
+      <div className="rounded-3xl p-6 mb-6 text-center bg-gradient-to-br from-yellow-400/10 to-orange-500/10 backdrop-blur-xl border border-yellow-400/20 shadow-xl">
         {coinBurst && <div className="text-4xl animate-bounce">💰</div>}
-        <div className="text-5xl font-black text-yellow-400">
+        <div className="text-xs text-gray-400 mb-1">Total Balance</div>
+        <div className="text-5xl font-black text-yellow-400 drop-shadow-lg">
           <AnimatedNumber value={balance?.points || 0} />
         </div>
       </div>
 
+      {/* WATCH AD */}
       <button
         onClick={handleAdClick}
         disabled={adLoading}
-        className="w-full p-6 mb-6 bg-yellow-400 text-black rounded-2xl font-bold"
+        className="w-full rounded-3xl p-6 mb-6 font-bold text-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-black shadow-2xl active:scale-95 transition"
       >
-        {adLoading ? "Loading..." : "Watch Ad"}
+        {adLoading ? "Loading..." : "🎬 Watch Ad & Earn"}
       </button>
 
-      <div className="p-5 mb-6 bg-slate-800 rounded-2xl">
-        <div>{dailyMessage}</div>
+      {/* DAILY */}
+      <div className="p-5 mb-6 flex justify-between bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-white/10">
+        <div>
+          <div className="font-bold">🎁 Daily Reward</div>
+          <div className="text-xs text-gray-400">
+            {dailyMessage ||
+              (dailyCooldown > 0
+                ? `⏳ ${formatCountdown(dailyCooldown)}`
+                : `+${settings?.daily_bonus_base || 100} pts`)}
+          </div>
+        </div>
+
         <button
           onClick={handleDailyClaim}
           disabled={dailyCooldown > 0}
-          className="bg-green-500 px-4 py-2 rounded mt-2"
+          className="px-5 py-2 bg-green-500 rounded-xl font-bold shadow"
         >
-          Claim Daily
+          Claim
         </button>
       </div>
 
+      {/* HISTORY */}
       <div className="space-y-3">
         {transactions.map((t) => (
-          <div key={t.id} className="flex justify-between bg-slate-800 p-3 rounded">
+          <div
+            key={t.id}
+            className="p-4 rounded-xl bg-slate-800/60 backdrop-blur border border-white/10 flex justify-between"
+          >
             <div>{t.type}</div>
-            <div>+{t.points}</div>
+            <div className="text-yellow-400 font-bold">+{t.points}</div>
           </div>
         ))}
       </div>

@@ -51,7 +51,7 @@ const CONVERSION_TIERS = [
   { pts: 25000, ton: 0.25 },
 ];
 
-const REQUIRED_ADS = 15;
+const REQUIRED_ADS = 40;
 
 export default function WalletPage() {
   const { user, balance, refreshBalance } = useApp();

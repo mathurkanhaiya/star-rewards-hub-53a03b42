@@ -107,9 +107,7 @@ export default function HomePage() {
   const [adNetwork, setAdNetwork] = useState<"adsgram" | "monetag">(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("adNetwork");
-      if (saved === "adsgram" || saved === "monetag") {
-        return saved;
-      }
+      if (saved === "adsgram" || saved === "monetag") return saved;
     }
     return "adsgram";
   });
@@ -124,7 +122,13 @@ export default function HomePage() {
   const COOLDOWN = 8000;
   const isAdRunning = useRef(false);
 
-  /* Persist state */
+  /* ===============================
+     🔥 CLICK DETECTION STATE
+  =================================*/
+  const [adClicked, setAdClicked] = useState(false);
+  const [adOpened, setAdOpened] = useState(false);
+
+  /* Persist */
   useEffect(() => {
     localStorage.setItem("adNetwork", adNetwork);
   }, [adNetwork]);
@@ -133,11 +137,29 @@ export default function HomePage() {
     localStorage.setItem("lastAdTime", lastAdTime.toString());
   }, [lastAdTime]);
 
+  /* Detect click (blur) */
+  useEffect(() => {
+    const handleBlur = () => {
+      if (adOpened) {
+        setAdClicked(true);
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    return () => window.removeEventListener("blur", handleBlur);
+  }, [adOpened]);
+
   /* ===============================
-     ADSGRAM REWARD
+     ADSGRAM
   =================================*/
   const onAdsgramReward = useCallback(async () => {
     if (!user) return;
+
+    if (!adClicked) {
+      alert("⚠️ You must click the ad to earn reward");
+      setAdOpened(false);
+      return;
+    }
 
     triggerHaptic("success");
 
@@ -150,8 +172,9 @@ export default function HomePage() {
     setTimeout(() => setCoinBurst(false), 1200);
     setTimeout(() => setDailyMessage(""), 3000);
 
-    setAdNetwork("monetag"); // 🔁 SWITCH
-  }, [user, refreshBalance]);
+    setAdNetwork("monetag");
+    setAdOpened(false);
+  }, [user, refreshBalance, adClicked]);
 
   const { showAd: showAdsgramAd } = useRewardedAd(onAdsgramReward);
 
@@ -162,11 +185,16 @@ export default function HomePage() {
     if (!user) return false;
 
     try {
-      if (!(window as any).show_10742752) {
-        throw new Error("Monetag not loaded");
-      }
+      setAdClicked(false);
+      setAdOpened(true);
 
       await (window as any).show_10742752();
+
+      if (!adClicked) {
+        alert("⚠️ Please click the ad to earn reward");
+        setAdOpened(false);
+        return false;
+      }
 
       triggerHaptic("success");
 
@@ -179,10 +207,13 @@ export default function HomePage() {
       setTimeout(() => setCoinBurst(false), 1200);
       setTimeout(() => setDailyMessage(""), 3000);
 
-      setAdNetwork("adsgram"); // 🔁 SWITCH BACK
+      setAdNetwork("adsgram");
+      setAdOpened(false);
+
       return true;
     } catch (err) {
-      console.error("❌ Monetag failed", err);
+      console.error("Monetag failed", err);
+      setAdOpened(false);
       return false;
     }
   };
@@ -197,9 +228,7 @@ export default function HomePage() {
     checkDailyCooldown();
   }, [user]);
 
-  /* ===============================
-     COUNTDOWN FIX
-  =================================*/
+  /* Countdown */
   useEffect(() => {
     if (dailyCooldown <= 0) return;
 
@@ -295,7 +324,6 @@ export default function HomePage() {
       <button
         onClick={async () => {
           if (!user) return;
-
           if (isAdRunning.current) return;
 
           const now = Date.now();
@@ -307,11 +335,14 @@ export default function HomePage() {
 
           isAdRunning.current = true;
           setLastAdTime(now);
+
           triggerHaptic("impact");
           setAdLoading(true);
 
           try {
             if (adNetwork === "adsgram") {
+              setAdClicked(false);
+              setAdOpened(true);
               await showAdsgramAd();
             } else {
               const success = await showMonetagAd();
@@ -385,14 +416,12 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* EARN */}
       {activeTab === "earn" && (
         <div className="space-y-4 mb-6">
           <AdsgramTask blockId="task-25198" />
         </div>
       )}
 
-      {/* HISTORY */}
       {activeTab === "history" && (
         <div className="space-y-3">
           {transactions.length === 0 && (
@@ -407,7 +436,6 @@ export default function HomePage() {
               className="p-4 rounded-xl bg-slate-800 flex justify-between"
             >
               <div className="text-sm">{t.type}</div>
-
               <div className="text-yellow-400 font-bold">
                 +{t.points}
               </div>

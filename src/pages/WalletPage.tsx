@@ -17,7 +17,7 @@ const UPI_TIERS = [
   { pts: 20000, inr: 20 },
 ];
 
-const REQUIRED_ADS = 15;
+const REQUIRED_ADS = 0;
 
 function isValidTon(addr: string) {
   return /^UQ[A-Za-z0-9_-]{46,}$/.test(addr);

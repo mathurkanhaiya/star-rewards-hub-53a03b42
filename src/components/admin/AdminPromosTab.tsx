@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useApp } from '@/context/AppContext';
-import { adminGetPromos, adminCreatePromo, adminTogglePromo } from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Promo {
   id: string;
@@ -17,7 +16,6 @@ interface Props {
 }
 
 export default function AdminPromosTab({ onMessage }: Props) {
-  const { telegramUser } = useApp();
   const [promos, setPromos] = useState<Promo[]>([]);
   const [title, setTitle] = useState('');
   const [reward, setReward] = useState('50');
@@ -26,39 +24,42 @@ export default function AdminPromosTab({ onMessage }: Props) {
   useEffect(() => { loadPromos(); }, []);
 
   async function loadPromos() {
-    const data = await adminGetPromos(telegramUser!.id);
-    setPromos((data || []).map((p: any) => ({
-      id: p.id,
-      title: p.title,
-      reward_points: p.rewardPoints ?? p.reward_points,
-      max_claims: p.maxClaims ?? p.max_claims,
-      total_claimed: p.totalClaimed ?? p.total_claimed,
-      is_active: p.isActive ?? p.is_active,
-      created_at: p.createdAt ?? p.created_at,
-    })));
+    const { data } = await supabase
+      .from('promos')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setPromos((data as Promo[]) || []);
   }
 
   async function createPromo() {
     if (!title.trim()) return;
-    const res = await adminCreatePromo({
+    const { error } = await supabase.from('promos').insert({
       title: title.trim(),
-      rewardPoints: parseInt(reward) || 50,
-      maxClaims: parseInt(maxClaims) || 100,
-    }, telegramUser!.id);
-    if (!res.success) { onMessage('Failed to create promo', 'error'); return; }
+      reward_points: parseInt(reward) || 50,
+      max_claims: parseInt(maxClaims) || 100,
+    });
+    if (error) { onMessage('Failed to create promo', 'error'); return; }
     onMessage('Promo created ✓');
     setTitle(''); setReward('50'); setMaxClaims('100');
     loadPromos();
   }
 
   async function togglePromo(id: string, active: boolean) {
-    await adminTogglePromo(id, active, telegramUser!.id);
+    await supabase.from('promos').update({ is_active: active }).eq('id', id);
     onMessage(active ? 'Promo activated' : 'Promo deactivated');
+    loadPromos();
+  }
+
+  async function deletePromo(id: string) {
+    await supabase.from('promo_claims').delete().eq('promo_id', id);
+    await supabase.from('promos').delete().eq('id', id);
+    onMessage('Promo deleted');
     loadPromos();
   }
 
   return (
     <div className="space-y-6">
+      {/* Create */}
       <div className="rounded-2xl p-4 space-y-3" style={{ background: '#111827', border: '1px solid rgba(239,68,68,0.3)' }}>
         <div className="text-sm font-bold text-red-400">Create Promo</div>
         <input
@@ -91,6 +92,7 @@ export default function AdminPromosTab({ onMessage }: Props) {
         </button>
       </div>
 
+      {/* List */}
       {promos.map(p => (
         <div
           key={p.id}
@@ -121,6 +123,12 @@ export default function AdminPromosTab({ onMessage }: Props) {
               }}
             >
               {p.is_active ? 'Deactivate' : 'Activate'}
+            </button>
+            <button
+              onClick={() => deletePromo(p.id)}
+              className="px-4 py-2 rounded-lg text-xs font-bold bg-red-500/15 text-red-400 transition active:scale-95"
+            >
+              🗑️
             </button>
           </div>
         </div>

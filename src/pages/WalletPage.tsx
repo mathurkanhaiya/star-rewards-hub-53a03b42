@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
+import { supabase } from '@/integrations/supabase/client';
 import { submitWithdrawal } from '@/lib/api';
 
 const TON_TIERS = [
@@ -158,10 +159,16 @@ export default function WalletPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`/api/ads/count/${user.id}`)
-      .then(r => r.json())
-      .then(data => setAdCount(data.count || 0))
-      .catch(() => setAdCount(0));
+    const now = new Date();
+    const startOfDay = new Date(Date.UTC(
+      now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()
+    )).toISOString();
+    supabase
+      .from('ad_logs')
+      .select('id', { count:'exact', head:true })
+      .eq('user_id', user.id)
+      .gte('created_at', startOfDay)
+      .then(({ count }) => setAdCount(count || 0));
   }, [user]);
 
   function openTonModal(tier: typeof TON_TIERS[0]) {

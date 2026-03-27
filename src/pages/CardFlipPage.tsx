@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useRewardedAd } from '@/hooks/useAdsgram';
-import { submitGameReward, checkGamePlays } from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 
 function triggerHaptic(type: 'success' | 'error' | 'impact') {
   if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
@@ -227,8 +227,14 @@ export default function CardFlipPage() {
 
   async function loadTodayCount() {
     setLimitLoading(true);
-    const info = await checkGamePlays(user!.id, 'cardflip');
-    setGamesPlayedToday(info.playsToday || 0);
+    const start = new Date(); start.setUTCHours(0,0,0,0);
+    const { count } = await supabase
+      .from('transactions')
+      .select('id', { count:'exact', head:true })
+      .eq('user_id', user!.id)
+      .eq('type', 'card_flip')
+      .gte('created_at', start.toISOString());
+    setGamesPlayedToday(count || 0);
     setLimitLoading(false);
   }
 
@@ -278,7 +284,18 @@ export default function CardFlipPage() {
       setGamesPlayedToday(p => p + 1);
 
       if (user) {
-        await submitGameReward(user.id, 'cardflip', pts);
+        const { data: bal } = await supabase
+          .from('balances').select('points,total_earned').eq('user_id', user.id).single();
+        if (bal) {
+          await supabase.from('balances').update({
+            points: bal.points + pts,
+            total_earned: bal.total_earned + pts,
+          }).eq('user_id', user.id);
+          await supabase.from('transactions').insert({
+            user_id: user.id, type: 'card_flip', points: pts,
+            description: `🃏 Card Flip: ${match === 'triple' ? 'Triple Match' : match === 'pair' ? 'Pair' : 'No Match'} +${pts} pts`,
+          });
+        }
         refreshBalance();
       }
     }

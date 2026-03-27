@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { AppUser, UserBalance, TelegramUser, Notification } from '@/types/telegram';
 import { initUser, getUserBalance, getSettings, getUnreadNotifCount, getNotifications, markNotificationRead } from '@/lib/api';
 import { showInterstitialAd } from '@/hooks/useAdsgram';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AppContextType {
   telegramUser: TelegramUser | null;
@@ -19,10 +20,18 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType>({
-  telegramUser: null, user: null, balance: null, settings: {},
-  isLoading: true, isAdmin: false, notifications: [], unreadCount: 0,
-  refreshBalance: async () => {}, refreshUser: async () => {},
-  refreshNotifications: async () => {}, markRead: async () => {},
+  telegramUser: null,
+  user: null,
+  balance: null,
+  settings: {},
+  isLoading: true,
+  isAdmin: false,
+  notifications: [],
+  unreadCount: 0,
+  refreshBalance: async () => {},
+  refreshUser: async () => {},
+  refreshNotifications: async () => {},
+  markRead: async () => {},
 });
 
 export const useApp = () => useContext(AppContext);
@@ -30,7 +39,10 @@ export const useApp = () => useContext(AppContext);
 const ADMIN_ID = 2139807311;
 
 const MOCK_TELEGRAM_USER: TelegramUser = {
-  id: 2139807311, first_name: 'Admin', last_name: 'User', username: 'adminuser',
+  id: 2139807311,
+  first_name: 'Admin',
+  last_name: 'User',
+  username: 'adminuser',
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -44,33 +56,67 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const isAdmin = telegramUser?.id === ADMIN_ID;
 
-  useEffect(() => { initApp(); }, []);
+  useEffect(() => {
+    initApp();
+  }, []);
 
-  // Poll balance + notifications every 30s (replaces Supabase realtime)
+  // Realtime subscriptions
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(async () => {
-      const [bal, unread] = await Promise.all([
-        getUserBalance(user.id),
-        getUnreadNotifCount(user.id),
-      ]);
-      if (bal) setBalance(bal);
-      setUnreadCount(unread);
-    }, 30000);
-    return () => clearInterval(interval);
+
+    // Subscribe to balance changes
+    const balanceChannel = supabase
+      .channel('balance-changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'balances', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setBalance(payload.new as UserBalance);
+        })
+      .subscribe();
+
+    // Subscribe to notifications
+    const notifChannel = supabase
+      .channel('notification-changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const newNotif = payload.new as Notification;
+          setNotifications(prev => [newNotif, ...prev]);
+          setUnreadCount(prev => prev + 1);
+        })
+      .subscribe();
+
+    // Subscribe to settings changes (admin)
+    const settingsChannel = supabase
+      .channel('settings-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' },
+        () => {
+          // Refresh settings when they change
+          getSettings().then(s => setSettings(s));
+        })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(balanceChannel);
+      supabase.removeChannel(notifChannel);
+      supabase.removeChannel(settingsChannel);
+    };
   }, [user?.id]);
 
   async function initApp() {
     setIsLoading(true);
     try {
       let tgUser: TelegramUser | null = null;
+      
       if (window.Telegram?.WebApp) {
         const twa = window.Telegram.WebApp;
         twa.ready();
         twa.expand();
         tgUser = twa.initDataUnsafe?.user || null;
       }
-      if (!tgUser) tgUser = MOCK_TELEGRAM_USER;
+
+      if (!tgUser) {
+        tgUser = MOCK_TELEGRAM_USER;
+      }
+
       setTelegramUser(tgUser);
 
       let referralCode: string | undefined;
@@ -82,6 +128,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         { id: tgUser.id, first_name: tgUser.first_name, last_name: tgUser.last_name, username: tgUser.username, photo_url: tgUser.photo_url },
         referralCode
       );
+      
       setUser(appUser);
 
       if (appUser) {
@@ -96,7 +143,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setNotifications(notifs as Notification[]);
         setUnreadCount(unread);
       } else {
-        setSettings(await getSettings());
+        const s = await getSettings();
+        setSettings(s);
       }
 
       showInterstitialAd().catch(() => {});
@@ -108,14 +156,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   const refreshBalance = useCallback(async () => {
-    if (user) { const bal = await getUserBalance(user.id); setBalance(bal); }
+    if (user) {
+      const bal = await getUserBalance(user.id);
+      setBalance(bal);
+    }
   }, [user]);
 
-  const refreshUser = useCallback(async () => { await initApp(); }, []);
+  const refreshUser = useCallback(async () => {
+    await initApp();
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     if (user) {
-      const [notifs, unread] = await Promise.all([getNotifications(user.id), getUnreadNotifCount(user.id)]);
+      const [notifs, unread] = await Promise.all([
+        getNotifications(user.id),
+        getUnreadNotifCount(user.id),
+      ]);
       setNotifications(notifs as Notification[]);
       setUnreadCount(unread);
     }

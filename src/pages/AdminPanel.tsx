@@ -294,8 +294,7 @@ const CSS = `
 `;
 
 export default function AdminPanel() {
-  const { telegramUser } = useApp();
-  const adminId = telegramUser?.id ?? 0;
+  const { telegramUser, refreshUser } = useApp();
 
   const [tab, setTab]                   = useState<AdminTab>('dashboard');
   const [msgText, setMsgText]           = useState('');
@@ -315,13 +314,13 @@ export default function AdminPanel() {
   const [settings, setSettingsState]  = useState<Record<string, string>>({});
   const [editSettings, setEditSettings] = useState<Record<string, string>>({});
 
-  useEffect(() => { if (adminId) loadDashboard(); }, [adminId]);
+  useEffect(() => { loadDashboard(); }, []);
 
   async function loadDashboard() {
     setLoading(true);
     const [s, u, w, t, settingsData, c] = await Promise.all([
-      adminGetStats(adminId), adminGetUsers(adminId), adminGetWithdrawals(adminId),
-      getTasks(), getSettings(), adminGetContests(adminId),
+      adminGetStats(), adminGetUsers(), adminGetWithdrawals(),
+      getTasks(), getSettings(), adminGetContests(),
     ]);
     setStats(s); setUsers(u); setWithdrawals(w); setTasks(t);
     setSettingsState(settingsData); setEditSettings(settingsData); setContests(c);
@@ -458,14 +457,13 @@ export default function AdminPanel() {
           {tab === 'users' && (
             <AdminUsersTab
               users={users}
-              adminTelegramId={adminId}
               onBan={async (id, banned) => {
-                await adminBanUser(id, banned, adminId);
+                await adminBanUser(id, banned);
                 showMsg(banned ? 'User banned' : 'User unbanned');
                 loadDashboard();
               }}
               onAdjustBalance={async (id, pts, reason) => {
-                const result = await adminAdjustBalance(id, pts, reason, adminId);
+                const result = await adminAdjustBalance(id, pts, reason);
                 result.success ? showMsg('Balance adjusted ✓') : showMsg('Failed', 'error');
                 loadDashboard();
               }}
@@ -477,12 +475,12 @@ export default function AdminPanel() {
             <AdminWithdrawalsTab
               withdrawals={withdrawals}
               onApprove={async id => {
-                await adminUpdateWithdrawal(id, 'approved', undefined, adminId);
+                await adminUpdateWithdrawal(id, 'approved');
                 showMsg('Withdrawal approved ✓');
                 loadDashboard();
               }}
               onReject={async id => {
-                await adminUpdateWithdrawal(id, 'rejected', 'Rejected by admin', adminId);
+                await adminUpdateWithdrawal(id, 'rejected', 'Rejected by admin');
                 showMsg('Withdrawal rejected', 'error');
                 loadDashboard();
               }}
@@ -494,17 +492,17 @@ export default function AdminPanel() {
             <AdminTasksTab
               tasks={tasks}
               onToggle={async (id, active) => {
-                await adminToggleTask(id, active, adminId);
+                await adminToggleTask(id, active);
                 showMsg(active ? 'Task enabled' : 'Task disabled');
                 loadDashboard();
               }}
               onDelete={async id => {
-                await adminDeleteTask(id, adminId);
+                await adminDeleteTask(id);
                 showMsg('Task deleted');
                 loadDashboard();
               }}
               onCreate={async task => {
-                const result = await adminCreateTask(task, adminId);
+                const result = await adminCreateTask(task);
                 result.success ? showMsg('Task created ✓') : showMsg('Failed', 'error');
                 loadDashboard();
               }}
@@ -516,12 +514,12 @@ export default function AdminPanel() {
             <AdminContestsTab
               contests={contests}
               onCreateContest={async contest => {
-                const result = await adminCreateContest(contest, adminId);
+                const result = await adminCreateContest(contest);
                 result.success ? showMsg('Contest launched 🏆') : showMsg('Failed', 'error');
                 loadDashboard();
               }}
               onEndContest={async id => {
-                const result = await adminEndContest(id, adminId);
+                const result = await adminEndContest(id);
                 result.success ? showMsg('Rewards distributed 🎁') : showMsg('Failed', 'error');
                 loadDashboard();
               }}
@@ -579,8 +577,9 @@ export default function AdminPanel() {
               editSettings={editSettings}
               setEditSettings={setEditSettings}
               onSave={async key => {
-                const result = await adminUpdateSetting(key, editSettings[key], adminId);
+                const result = await adminUpdateSetting(key, editSettings[key]);
                 result.success ? showMsg('Setting saved ✓') : showMsg('Failed', 'error');
+                refreshUser();
                 loadDashboard();
               }}
               saving={null}

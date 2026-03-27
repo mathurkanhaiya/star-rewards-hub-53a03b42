@@ -1256,6 +1256,218 @@ app.get('/api/daily-streak/:userId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 
+// ─── One-time DB setup (admin only, idempotent) ───────────────────────────────
+app.post('/api/admin/setup-db', async (req, res) => {
+  if (!await requireAdmin(req, res)) return;
+  try {
+    const { pool: pgPool } = await import('./db.js');
+    const client = await (pgPool as any).connect();
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          telegram_id BIGINT UNIQUE NOT NULL,
+          username TEXT, first_name TEXT, last_name TEXT, photo_url TEXT,
+          level INTEGER NOT NULL DEFAULT 1,
+          total_points BIGINT NOT NULL DEFAULT 0,
+          referral_code TEXT UNIQUE NOT NULL,
+          referred_by BIGINT,
+          is_banned BOOLEAN NOT NULL DEFAULT false,
+          last_active_at TIMESTAMPTZ DEFAULT NOW(),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS balances (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+          points BIGINT NOT NULL DEFAULT 0,
+          stars_balance NUMERIC(20,6) NOT NULL DEFAULT 0,
+          usdt_balance NUMERIC(20,6) NOT NULL DEFAULT 0,
+          ton_balance NUMERIC(20,6) NOT NULL DEFAULT 0,
+          total_earned BIGINT NOT NULL DEFAULT 0,
+          total_withdrawn BIGINT NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS tasks (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          title TEXT NOT NULL, description TEXT,
+          task_type TEXT NOT NULL DEFAULT 'social',
+          reward_points BIGINT NOT NULL DEFAULT 100,
+          reward_stars NUMERIC(10,4) NOT NULL DEFAULT 0,
+          link TEXT, icon TEXT,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          is_repeatable BOOLEAN NOT NULL DEFAULT false,
+          repeat_hours INTEGER DEFAULT 24,
+          display_order INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS user_tasks (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          points_earned BIGINT NOT NULL DEFAULT 0,
+          next_available_at TIMESTAMPTZ
+        );
+        CREATE TABLE IF NOT EXISTS referrals (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          referrer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          referred_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+          points_earned BIGINT NOT NULL DEFAULT 0,
+          is_verified BOOLEAN NOT NULL DEFAULT false,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS withdrawals (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          method TEXT NOT NULL,
+          points_spent BIGINT NOT NULL DEFAULT 0,
+          amount NUMERIC(20,6) NOT NULL,
+          wallet_address TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          admin_note TEXT,
+          requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          processed_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS transactions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          type TEXT NOT NULL,
+          points BIGINT NOT NULL DEFAULT 0,
+          description TEXT,
+          reference_id UUID,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS daily_claims (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          claim_date DATE NOT NULL DEFAULT CURRENT_DATE,
+          day_streak INTEGER NOT NULL DEFAULT 1,
+          points_earned BIGINT NOT NULL DEFAULT 0,
+          claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS spin_results (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          result_type TEXT NOT NULL,
+          points_earned BIGINT NOT NULL DEFAULT 0,
+          stars_earned NUMERIC(10,4) NOT NULL DEFAULT 0,
+          spun_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS ad_logs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          ad_type TEXT NOT NULL,
+          reward_given BIGINT NOT NULL DEFAULT 0,
+          provider TEXT NOT NULL DEFAULT 'adsgram',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS settings (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          key TEXT UNIQUE NOT NULL,
+          value TEXT NOT NULL,
+          description TEXT,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS notifications (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL,
+          title TEXT NOT NULL, message TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT 'info',
+          is_read BOOLEAN NOT NULL DEFAULT false,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS contests (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          contest_type TEXT NOT NULL DEFAULT 'ads_watch',
+          title TEXT NOT NULL,
+          starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          ends_at TIMESTAMPTZ NOT NULL,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          reward_1st BIGINT NOT NULL DEFAULT 5000,
+          reward_2nd BIGINT NOT NULL DEFAULT 3000,
+          reward_3rd BIGINT NOT NULL DEFAULT 2000,
+          reward_4th BIGINT NOT NULL DEFAULT 1000,
+          reward_5th BIGINT NOT NULL DEFAULT 500,
+          rewards_distributed BOOLEAN NOT NULL DEFAULT false,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS contest_entries (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          contest_id UUID NOT NULL REFERENCES contests(id) ON DELETE CASCADE,
+          user_id UUID NOT NULL,
+          score BIGINT NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS promos (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          title TEXT NOT NULL,
+          reward_points BIGINT NOT NULL DEFAULT 50,
+          max_claims INTEGER NOT NULL DEFAULT 100,
+          total_claimed INTEGER NOT NULL DEFAULT 0,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS promo_claims (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          promo_id UUID NOT NULL REFERENCES promos(id) ON DELETE CASCADE,
+          user_id UUID NOT NULL,
+          claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS game_plays (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          game_type TEXT NOT NULL,
+          points_earned BIGINT NOT NULL DEFAULT 0,
+          played_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        INSERT INTO settings (key, value, description) VALUES
+          ('ad_reward_points','50','Points per ad'),
+          ('daily_bonus_base','100','Base daily bonus'),
+          ('daily_bonus_streak_multiplier','1.1','Streak multiplier'),
+          ('points_per_referral','500','Referrer reward'),
+          ('referral_bonus_referred','200','Referred user reward'),
+          ('max_referral_bonus','50000','Max referral points'),
+          ('min_withdrawal_points','10000','Min points to withdraw'),
+          ('max_pending_withdrawals','3','Max pending withdrawals'),
+          ('withdrawal_enabled','true','Withdrawal switch'),
+          ('required_daily_ads','3','Ads to unlock withdrawal'),
+          ('ad_cooldown_seconds','30','Ad cooldown seconds'),
+          ('max_ads_per_day','20','Max ads per day'),
+          ('adsgram_block_id','9527','Adsgram block ID'),
+          ('stars_conversion_rate','100','Points per Star'),
+          ('usdt_conversion_rate','10000','Points per USDT'),
+          ('ton_conversion_rate','5000','Points per TON'),
+          ('max_daily_spins','3','Max daily spins'),
+          ('spin_cooldown_hours','8','Spin cooldown hours'),
+          ('spin_reward_min','50','Min spin reward'),
+          ('spin_reward_max','500','Max spin reward'),
+          ('spin_jackpot','5000','Jackpot reward'),
+          ('spin_jackpot_chance','2','Jackpot chance %'),
+          ('tower_reward_multiplier','1','Tower multiplier'),
+          ('dice_reward_enabled','true','Dice enabled'),
+          ('cardflip_reward_enabled','true','Card flip enabled'),
+          ('numberguess_reward_enabled','true','Number guess enabled'),
+          ('luckybox_reward_enabled','true','Lucky box enabled'),
+          ('leaderboard_refresh_seconds','60','LB refresh interval'),
+          ('leaderboard_max_entries','100','Max LB entries'),
+          ('maintenance_mode','false','Maintenance mode'),
+          ('bot_name','ADS Rewards Bot','Bot name'),
+          ('app_version','1.0.0','App version'),
+          ('support_username','support','Support username'),
+          ('channel_username','adsrewards','Channel username')
+        ON CONFLICT (key) DO NOTHING;
+      `);
+      res.json({ success: true, message: 'All tables created successfully' });
+    } finally {
+      client.release();
+    }
+  } catch (err) { res.status(500).json({ error: String(err) }); }
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`✅ API server running on port ${PORT}`);

@@ -92,6 +92,67 @@ function mapUser(u: any) {
   };
 }
 
+function mapTask(t: any) {
+  if (!t) return null;
+  return {
+    id:            t.id,
+    title:         t.title,
+    description:   t.description,
+    task_type:     t.taskType,
+    reward_points: t.rewardPoints,
+    reward_stars:  t.rewardStars,
+    link:          t.link,
+    icon:          t.icon,
+    is_active:     t.isActive,
+    is_repeatable: t.isRepeatable,
+    display_order: t.displayOrder,
+    repeat_hours:  t.repeatHours,
+    adsgram_block_id: t.adsgramBlockId,
+  };
+}
+
+function mapNotification(n: any) {
+  if (!n) return null;
+  return {
+    id:         n.id,
+    user_id:    n.userId,
+    title:      n.title,
+    message:    n.message,
+    type:       n.type,
+    is_read:    n.isRead,
+    created_at: n.createdAt,
+  };
+}
+
+function mapTransaction(t: any) {
+  if (!t) return null;
+  return {
+    id:          t.id,
+    user_id:     t.userId,
+    type:        t.type,
+    points:      t.points,
+    description: t.description,
+    created_at:  t.createdAt,
+  };
+}
+
+function mapWithdrawal(w: any) {
+  if (!w) return null;
+  return {
+    id:              w.id,
+    user_id:         w.userId,
+    method:          w.method,
+    points_spent:    w.pointsSpent,
+    amount:          w.amount,
+    wallet_address:  w.walletAddress,
+    status:          w.status,
+    admin_note:      w.adminNote,
+    requested_at:    w.requestedAt,
+    processed_at:    w.processedAt,
+    created_at:      w.createdAt,
+  };
+}
+
 function mapBalance(b: any) {
   if (!b) return null;
   return {
@@ -245,7 +306,7 @@ app.get('/api/tasks', async (_req, res) => {
     const rows = await db.select().from(schema.tasks)
       .where(eq(schema.tasks.isActive, true))
       .orderBy(asc(schema.tasks.displayOrder));
-    res.json(rows);
+    res.json(rows.map(mapTask));
   } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 
@@ -569,7 +630,7 @@ app.get('/api/transactions/:userId', async (req, res) => {
       .where(eq(schema.transactions.userId, req.params.userId))
       .orderBy(desc(schema.transactions.createdAt))
       .limit(50);
-    res.json(rows);
+    res.json(rows.map(mapTransaction));
   } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 
@@ -582,7 +643,7 @@ app.get('/api/notifications/:userId', async (req, res) => {
     const rows = await db.select().from(schema.notifications)
       .where(eq(schema.notifications.userId, req.params.userId))
       .orderBy(desc(schema.notifications.createdAt)).limit(30);
-    res.json(rows);
+    res.json(rows.map(mapNotification));
   } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 
@@ -844,7 +905,10 @@ app.get('/api/admin/users', async (req, res) => {
       .from(schema.users)
       .leftJoin(schema.balances, eq(schema.balances.userId, schema.users.id))
       .orderBy(desc(schema.users.createdAt));
-    res.json(rows.map(r => ({ ...r.user, balances: r.balance ? [r.balance] : [] })));
+    res.json(rows.map(r => ({
+      ...mapUser(r.user),
+      balances: r.balance ? [mapBalance(r.balance)] : [],
+    })));
   } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 
@@ -856,7 +920,15 @@ app.get('/api/admin/withdrawals', async (req, res) => {
       .from(schema.withdrawals)
       .leftJoin(schema.users, eq(schema.users.id, schema.withdrawals.userId))
       .orderBy(desc(schema.withdrawals.createdAt));
-    res.json(rows.map(r => ({ ...r.withdrawal, users: r.user })));
+    res.json(rows.map(r => ({
+      ...mapWithdrawal(r.withdrawal),
+      users: r.user ? {
+        first_name: r.user.firstName,
+        username:   r.user.username,
+        telegram_id: r.user.telegramId,
+        photo_url:  r.user.photoUrl,
+      } : null,
+    })));
   } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 

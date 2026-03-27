@@ -1,5 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useMemo, useState } from 'react';
 
 interface AdminUser {
   id: string;
@@ -60,11 +59,7 @@ export default function AdminUsersTab({ users, onBan, onAdjustBalance }: Props) 
 
   async function loadEarnings(userId: string) {
     if (earnings[userId]) return;
-    const { data } = await supabase
-      .from('transactions')
-      .select('type, points')
-      .eq('user_id', userId);
-
+    const data = await fetch(`/api/transactions/${userId}`).then(r => r.json()).catch(() => []);
     const breakdown: EarningsBreakdown = { ads: 0, games: 0, daily: 0, referral: 0, spin: 0, promo: 0, other: 0 };
     (data || []).forEach((t: any) => {
       const pts = t.points || 0;

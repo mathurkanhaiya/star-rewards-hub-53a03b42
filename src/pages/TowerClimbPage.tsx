@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useRewardedAd } from '@/hooks/useAdsgram';
-import { supabase } from '@/integrations/supabase/client';
-import { logAdWatch } from '@/lib/api';
+import { logAdWatch, submitGameReward, checkGamePlays } from '@/lib/api';
 
 function triggerHaptic(type: 'success' | 'error' | 'impact') {
   if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
@@ -167,44 +166,25 @@ export default function TowerClimbPage() {
 
   async function loadTodayCount() {
     setLimitLoading(true);
-    const start = new Date(); start.setUTCHours(0,0,0,0);
-    const { count } = await supabase
-      .from('tower_runs')
-      .select('id', { count:'exact', head:true })
-      .eq('user_id', user!.id)
-      .gte('created_at', start.toISOString());
-    setGamesPlayedToday(count || 0);
+    const info = await checkGamePlays(user!.id, 'tower');
+    setGamesPlayedToday(info.playsToday || 0);
     setLimitLoading(false);
   }
 
   async function loadStats() {
-    if (!user) return;
-    const { data } = await supabase
-      .from('tower_leaderboard')
-      .select('best_floor,total_runs')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (data) { setBestFloor(data.best_floor); setTotalRuns(data.total_runs); }
+    // Stats tracked locally via state
   }
 
   async function loadLeaderboard() {
-    const { data } = await supabase
-      .from('tower_leaderboard')
-      .select('user_id,best_floor,total_runs')
-      .order('best_floor', { ascending:false })
-      .limit(20);
-    if (!data || data.length === 0) { setLeaderboard([]); return; }
-    const userIds = data.map(d => d.user_id);
-    const { data: users } = await supabase
-      .from('users').select('id,first_name,username,photo_url').in('id', userIds);
-    const userMap: Record<string, any> = {};
-    (users || []).forEach(u => { userMap[u.id] = u; });
-    setLeaderboard(data.map(d => ({
-      ...d,
-      first_name: userMap[d.user_id]?.first_name || 'Unknown',
-      username:   userMap[d.user_id]?.username   || '',
-      photo_url:  userMap[d.user_id]?.photo_url,
-    })));
+    try {
+      const rows: any[] = await fetch('/api/leaderboard').then(r => r.json()).catch(() => []);
+      setLeaderboard(rows.slice(0, 20).map((r: any) => ({
+        user_id: r.id, best_floor: 0, total_runs: 0,
+        first_name: r.firstName || r.first_name || 'Unknown',
+        username: r.username || '',
+        photo_url: r.photoUrl || r.photo_url || null,
+      })));
+    } catch { setLeaderboard([]); }
   }
 
   const onMultiplierReward = useCallback(() => {
@@ -294,42 +274,8 @@ export default function TowerClimbPage() {
     cancelAnimationFrame(animRef.current);
     if (!user) return;
 
-    await supabase.from('tower_runs').insert({
-      user_id: user.id,
-      floors_reached: finalFloor,
-      points_earned: finalScore,
-    });
-
-    const { data: existing } = await supabase.from('tower_leaderboard')
-      .select('id,best_floor,total_runs,total_floors').eq('user_id', user.id).maybeSingle();
-    if (existing) {
-      await supabase.from('tower_leaderboard').update({
-        best_floor:   Math.max(existing.best_floor, finalFloor),
-        total_floors: existing.total_floors + finalFloor,
-        total_runs:   existing.total_runs + 1,
-        updated_at:   new Date().toISOString(),
-      }).eq('id', existing.id);
-    } else {
-      await supabase.from('tower_leaderboard').insert({
-        user_id: user.id, best_floor: finalFloor, total_floors: finalFloor, total_runs: 1,
-      });
-    }
-
-    if (finalScore > 0) {
-      const { data: bal } = await supabase
-        .from('balances').select('points,total_earned').eq('user_id', user.id).single();
-      if (bal) {
-        await supabase.from('balances').update({
-          points: bal.points + finalScore,
-          total_earned: bal.total_earned + finalScore,
-        }).eq('user_id', user.id);
-        await supabase.from('transactions').insert({
-          user_id: user.id, type: 'tower_climb', points: finalScore,
-          description: `🏗️ Tower Climb: Floor ${finalFloor} (+${finalScore} pts)`,
-        });
-      }
-      await refreshBalance();
-    }
+    await submitGameReward(user.id, 'tower', finalScore);
+    if (finalScore > 0) await refreshBalance();
 
     setBestFloor(prev => Math.max(prev, finalFloor));
     setTotalRuns(prev => prev + 1);

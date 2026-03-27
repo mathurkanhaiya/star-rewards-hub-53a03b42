@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 // Global client-side cache
 const emojiUrlCache = new Map<string, string>();
 const pendingRequests = new Map<string, Promise<string | null>>();
@@ -14,16 +13,8 @@ async function fetchEmojiUrl(id: string): Promise<string | null> {
   }
   const promise = (async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("get-custom-emoji", {
-        body: { custom_emoji_ids: [id] },
-      });
-      if (error || !data?.emojis?.[id]) {
-        console.warn("Failed to fetch emoji", id, error);
-        return null;
-      }
-      const url = data.emojis[id];
-      emojiUrlCache.set(id, url);
-      return url;
+      // Custom emoji fetching is not supported in this version
+      return null;
     } catch (err) {
       console.warn("Emoji fetch error:", err);
       return null;

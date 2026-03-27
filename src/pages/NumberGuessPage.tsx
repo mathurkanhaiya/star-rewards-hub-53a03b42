@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useRewardedAd } from '@/hooks/useAdsgram';
-import { supabase } from '@/integrations/supabase/client';
+import { submitGameReward, checkGamePlays } from '@/lib/api';
 
 function triggerHaptic(type: 'success' | 'error' | 'impact') {
   if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
@@ -196,14 +196,8 @@ export default function NumberGuessPage() {
 
   async function loadTodayCount() {
     setLimitLoading(true);
-    const start = new Date(); start.setUTCHours(0,0,0,0);
-    const { count } = await supabase
-      .from('transactions')
-      .select('id', { count:'exact', head:true })
-      .eq('user_id', user!.id)
-      .eq('type', 'number_guess')
-      .gte('created_at', start.toISOString());
-    setGamesPlayedToday(count || 0);
+    const info = await checkGamePlays(user!.id, 'numberguess');
+    setGamesPlayedToday(info.playsToday || 0);
     setLimitLoading(false);
   }
 
@@ -243,18 +237,7 @@ export default function NumberGuessPage() {
     triggerHaptic(diff === 0 ? 'success' : diff <= 2 ? 'success' : 'error');
 
     if (user) {
-      const { data: bal } = await supabase
-        .from('balances').select('points,total_earned').eq('user_id', user.id).single();
-      if (bal) {
-        await supabase.from('balances').update({
-          points: bal.points + tier.pts,
-          total_earned: bal.total_earned + tier.pts,
-        }).eq('user_id', user.id);
-        await supabase.from('transactions').insert({
-          user_id: user.id, type: 'number_guess', points: tier.pts,
-          description: `🎯 Number Guess: ${tier.label} (picked ${n}, answer ${target}) +${tier.pts} pts`,
-        });
-      }
+      await submitGameReward(user.id, 'numberguess', tier.pts);
       refreshBalance();
     }
   };

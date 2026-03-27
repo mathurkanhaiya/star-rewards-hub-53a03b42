@@ -1,19 +1,13 @@
 const BASE = '/api/admin-auth';
 
-export async function requestAdminOtp(telegramId: number): Promise<{ success: boolean; error?: string; message?: string }> {
-  const res = await fetch(`${BASE}/request-otp`, {
+export async function adminLogin(
+  telegramId: number,
+  password: string
+): Promise<{ success: boolean; token?: string; error?: string }> {
+  const res = await fetch(`${BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ telegramId }),
-  });
-  return res.json();
-}
-
-export async function verifyAdminOtp(telegramId: number, otp: string): Promise<{ success: boolean; token?: string; error?: string }> {
-  const res = await fetch(`${BASE}/verify-otp`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ telegramId, otp }),
+    body: JSON.stringify({ telegramId, password }),
   });
   return res.json();
 }

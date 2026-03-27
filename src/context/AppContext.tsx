@@ -38,12 +38,15 @@ export const useApp = () => useContext(AppContext);
 
 const ADMIN_ID = 2139807311;
 
-const MOCK_TELEGRAM_USER: TelegramUser = {
-  id: 2139807311,
-  first_name: 'Admin',
-  last_name: 'User',
-  username: 'adminuser',
-};
+function detectTelegramEnv(): TelegramUser | null {
+  try {
+    const twa = window.Telegram?.WebApp;
+    if (twa && twa.initData && twa.initData.length > 0) {
+      return twa.initDataUnsafe?.user || null;
+    }
+  } catch {}
+  return null;
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
@@ -104,31 +107,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function initApp() {
     setIsLoading(true);
     try {
-      let tgUser: TelegramUser | null = null;
-      
-      if (window.Telegram?.WebApp) {
+      const tgUser = detectTelegramEnv();
+
+      // Not running inside Telegram — show nothing, load nothing
+      if (!tgUser) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
         const twa = window.Telegram.WebApp;
         twa.ready();
         twa.expand();
-        tgUser = twa.initDataUnsafe?.user || null;
-      }
-
-      if (!tgUser) {
-        tgUser = MOCK_TELEGRAM_USER;
-      }
+      } catch {}
 
       setTelegramUser(tgUser);
 
       let referralCode: string | undefined;
-      if (window.Telegram?.WebApp?.initDataUnsafe?.start_param) {
-        referralCode = window.Telegram.WebApp.initDataUnsafe.start_param;
-      }
+      try {
+        referralCode = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+      } catch {}
 
       const appUser = await initUser(
         { id: tgUser.id, first_name: tgUser.first_name, last_name: tgUser.last_name, username: tgUser.username, photo_url: tgUser.photo_url },
         referralCode
       );
-      
+
       setUser(appUser);
 
       if (appUser) {

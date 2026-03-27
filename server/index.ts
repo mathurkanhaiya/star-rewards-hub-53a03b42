@@ -71,6 +71,41 @@ async function incrementPoints(userId: string, points: number) {
     .where(eq(schema.users.id, userId));
 }
 
+// ─── Response mappers (Drizzle camelCase → frontend snake_case) ───────────────
+function mapUser(u: any) {
+  if (!u) return null;
+  return {
+    id:            u.id,
+    telegram_id:   u.telegramId,
+    username:      u.username,
+    first_name:    u.firstName,
+    last_name:     u.lastName,
+    photo_url:     u.photoUrl,
+    level:         u.level,
+    total_points:  u.totalPoints,
+    referral_code: u.referralCode,
+    referred_by:   u.referredBy,
+    is_banned:     u.isBanned,
+    ban_reason:    u.banReason ?? null,
+    last_active_at: u.lastActiveAt,
+    created_at:    u.createdAt,
+  };
+}
+
+function mapBalance(b: any) {
+  if (!b) return null;
+  return {
+    id:              b.id,
+    user_id:         b.userId,
+    points:          b.points,
+    stars_balance:   parseFloat(b.starsBalance ?? b.stars_balance ?? 0),
+    usdt_balance:    parseFloat(b.usdtBalance  ?? b.usdt_balance  ?? 0),
+    ton_balance:     parseFloat(b.tonBalance   ?? b.ton_balance   ?? 0),
+    total_earned:    b.totalEarned  ?? b.total_earned  ?? 0,
+    total_withdrawn: b.totalWithdrawn ?? b.total_withdrawn ?? 0,
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -85,12 +120,15 @@ app.post('/api/auth', async (req, res) => {
       .where(eq(schema.users.telegramId, telegramUser.id)).limit(1);
 
     if (existing.length > 0) {
-      await db.update(schema.users).set({
+      const [updated] = await db.update(schema.users).set({
         lastActiveAt: new Date(),
+        firstName: telegramUser.first_name || existing[0].firstName,
+        lastName: telegramUser.last_name || existing[0].lastName,
+        username: telegramUser.username || existing[0].username,
         photoUrl: telegramUser.photo_url || existing[0].photoUrl,
         updatedAt: new Date(),
-      }).where(eq(schema.users.id, existing[0].id));
-      return res.json({ user: existing[0] });
+      }).where(eq(schema.users.id, existing[0].id)).returning();
+      return res.json({ user: mapUser(updated) });
     }
 
     // New user
@@ -162,7 +200,7 @@ app.post('/api/auth', async (req, res) => {
       });
     }
 
-    res.json({ user: newUser });
+    res.json({ user: mapUser(newUser) });
   } catch (err) {
     console.error('auth error:', err);
     res.status(500).json({ error: String(err) });
@@ -177,7 +215,7 @@ app.get('/api/user/:telegramId', async (req, res) => {
   try {
     const rows = await db.select().from(schema.users)
       .where(eq(schema.users.telegramId, parseInt(req.params.telegramId))).limit(1);
-    res.json(rows[0] || null);
+    res.json(mapUser(rows[0]) || null);
   } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 
@@ -185,7 +223,7 @@ app.get('/api/balance/:userId', async (req, res) => {
   try {
     const rows = await db.select().from(schema.balances)
       .where(eq(schema.balances.userId, req.params.userId)).limit(1);
-    res.json(rows[0] || null);
+    res.json(mapBalance(rows[0]) || null);
   } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 

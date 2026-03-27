@@ -458,6 +458,7 @@ export default function AdminPanel() {
           {tab === 'users' && (
             <AdminUsersTab
               users={users}
+              adminTelegramId={adminId}
               onBan={async (id, banned) => {
                 await adminBanUser(id, banned, adminId);
                 showMsg(banned ? 'User banned' : 'User unbanned');

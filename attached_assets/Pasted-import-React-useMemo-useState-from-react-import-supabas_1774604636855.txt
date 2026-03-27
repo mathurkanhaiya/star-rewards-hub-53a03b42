@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { adminGetUserActivity } from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AdminUser {
   id: string;
@@ -51,7 +51,6 @@ interface UserActivity {
 
 interface Props {
   users: AdminUser[];
-  adminTelegramId: number;
   onBan: (userId: string, banned: boolean) => void;
   onAdjustBalance: (userId: string, points: number, reason: string) => void;
 }
@@ -287,7 +286,7 @@ const BREAKDOWN_ITEMS = [
 
 type FilterType = 'all' | 'active' | 'banned' | 'new';
 
-export default function AdminUsersTab({ users, adminTelegramId, onBan, onAdjustBalance }: Props) {
+export default function AdminUsersTab({ users, onBan, onAdjustBalance }: Props) {
   const [searchQuery, setSearchQuery]   = useState('');
   const [currentPage, setCurrentPage]   = useState(1);
   const [perPage, setPerPage]           = useState<number | 'all'>(20);
@@ -353,16 +352,71 @@ export default function AdminUsersTab({ users, adminTelegramId, onBan, onAdjustB
   async function loadActivity(userId: string) {
     if (getPanel(userId).activity) return;
     setPanel(userId, { loading: true });
-    try {
-      const data = await adminGetUserActivity(userId, adminTelegramId);
-      if (data) {
-        setPanel(userId, { loading: false, activity: data });
-      } else {
-        setPanel(userId, { loading: false });
+
+    const [txRes, adRes, dropRes] = await Promise.all([
+      supabase.from('transactions').select('id,type,points,description,created_at')
+        .eq('user_id', userId).order('created_at', { ascending: false }).limit(150),
+      supabase.from('ad_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('daily_claims').select('claim_date')
+        .eq('user_id', userId).order('claim_date', { ascending: false }).limit(7),
+    ]);
+
+    const txs: Transaction[] = txRes.data || [];
+    const breakdown: EarningsBreakdown = {
+      tap:0, farm:0, ads:0, games:0, daily:0, drop:0,
+      referral:0, spin:0, tasks:0, promo:0, admin:0, other:0,
+    };
+    let totalEarned = 0;
+
+    txs.forEach(t => {
+      const pts = t.points || 0;
+      if (pts <= 0) return;
+      totalEarned += pts;
+      const ty = t.type;
+      if (ty === 'tap_earn') breakdown.tap += pts;
+      else if (ty === 'farm_claim') breakdown.farm += pts;
+      else if (['adsgram_reward','adsgram_task','ad_reward','ad_watch'].includes(ty)) breakdown.ads += pts;
+      else if (['tower_climb','lucky_box','dice_roll','card_flip','number_guess','game'].includes(ty)) breakdown.games += pts;
+      else if (['daily_reward','daily'].includes(ty)) breakdown.daily += pts;
+      else if (ty === 'daily_drop') breakdown.drop += pts;
+      else if (['referral','referral_bonus'].includes(ty)) breakdown.referral += pts;
+      else if (['spin','spin_reward'].includes(ty)) breakdown.spin += pts;
+      else if (ty === 'task_complete') breakdown.tasks += pts;
+      else if (ty === 'promo') breakdown.promo += pts;
+      else if (['admin_credit','admin_debit','admin_adjust'].includes(ty)) breakdown.admin += pts;
+      else breakdown.other += pts;
+    });
+
+    /* tap count from transactions */
+    const tapCount  = txs.filter(t => t.type === 'tap_earn').length;
+    const farmCount = txs.filter(t => t.type === 'farm_claim').length;
+
+    /* drop streak */
+    let dropStreak = 0;
+    const drops = dropRes.data || [];
+    if (drops.length > 0) {
+      const now = new Date(); now.setUTCHours(0,0,0,0);
+      for (let i = 0; i < drops.length; i++) {
+        const d = new Date(drops[i].claim_date);
+        const exp = new Date(now); exp.setUTCDate(now.getUTCDate() - i);
+        if (d.toISOString().split('T')[0] === exp.toISOString().split('T')[0]) dropStreak++;
+        else break;
       }
-    } catch {
-      setPanel(userId, { loading: false });
     }
+
+    const { data: balData } = await supabase
+      .from('balances').select('points').eq('user_id', userId).single();
+
+    setPanel(userId, {
+      loading: false,
+      activity: {
+        breakdown, transactions: txs, totalEarned,
+        currentBalance: balData?.points || 0,
+        lastSeen: txs[0]?.created_at || null,
+        adCount: adRes.count || 0,
+        tapCount, farmCount, dropStreak,
+      },
+    });
   }
 
   function toggleExpand(userId: string) {

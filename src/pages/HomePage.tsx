@@ -60,14 +60,14 @@ function txIcon(type: string): string {
 }
 
 /* ── Constants ── */
-const MAX_ENERGY          = 500;
+const MAX_ENERGY          = 50;
 const REGEN_PER_SEC       = 50 / 3600;
 const X2_DURATION_SEC     = 10;
 const FAST_DURATION_SEC   = 60;
 const FAST_REGEN_MULT     = 2;
 const FARM_DURATION_MS    = 15 * 60 * 1000;
 const FARM_REWARD         = 100;
-const AD_MAX_PER_DAY      = 20;
+const AD_MAX_PER_DAY      = 50;
 const AD_REWARD           = 50;
 const AD_COOLDOWN_SEC     = 10;
 const AD_INIT_DELAY_SEC   = 10;

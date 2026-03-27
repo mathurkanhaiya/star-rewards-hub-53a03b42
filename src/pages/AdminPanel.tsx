@@ -14,6 +14,8 @@ import AdminTasksTab       from '@/components/admin/AdminTasksTab';
 import AdminSettingsTab    from '@/components/admin/AdminSettingsTab';
 import AdminContestsTab    from '@/components/admin/AdminContestsTab';
 import AdminPromosTab      from '@/components/admin/AdminPromosTab';
+import AdminLoginPage      from '@/pages/AdminLoginPage';
+import { getStoredSession, verifyAdminSession, clearSession } from '@/lib/adminAuth';
 
 type AdminTab =
   | 'dashboard' | 'users' | 'withdrawals' | 'tasks'
@@ -293,7 +295,55 @@ const CSS = `
 }
 `;
 
+// ── OTP Session Guard ────────────────────────────────────────────────────────
 export default function AdminPanel() {
+  const { telegramUser } = useApp();
+  const [sessionToken, setSessionToken] = useState<string | null>(() => getStoredSession());
+  const [sessionVerified, setSessionVerified] = useState(false);
+  const [sessionChecking, setSessionChecking] = useState(true);
+
+  useEffect(() => {
+    async function checkSession() {
+      const token = getStoredSession();
+      if (!token) { setSessionChecking(false); return; }
+      const valid = await verifyAdminSession(token);
+      if (valid) {
+        setSessionToken(token);
+        setSessionVerified(true);
+      } else {
+        clearSession();
+        setSessionToken(null);
+      }
+      setSessionChecking(false);
+    }
+    checkSession();
+  }, []);
+
+  if (sessionChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{
+        background: 'linear-gradient(135deg, hsl(220 25% 6%), hsl(220 25% 10%))'
+      }}>
+        <div className="w-8 h-8 rounded-full border-2 border-transparent animate-spin"
+          style={{ borderTopColor: 'hsl(262 80% 60%)' }} />
+      </div>
+    );
+  }
+
+  if (!sessionToken || !sessionVerified) {
+    return (
+      <AdminLoginPage
+        adminTelegramId={telegramUser?.id ?? 0}
+        onAuthenticated={(token) => { setSessionToken(token); setSessionVerified(true); }}
+      />
+    );
+  }
+
+  return <AdminPanelContent />;
+}
+// ────────────────────────────────────────────────────────────────────────────
+
+function AdminPanelContent() {
   const { telegramUser, refreshUser } = useApp();
 
   const [tab, setTab]                   = useState<AdminTab>('dashboard');

@@ -53,8 +53,18 @@ const navItems = [
 const notificationIcon =
   'https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773234754093-d8278f25.gif';
 
+function isRunningInTelegram(): boolean {
+  try {
+    const tg = (window as any).Telegram?.WebApp;
+    return !!(tg?.initData && tg.initData.length > 0);
+  } catch {
+    return false;
+  }
+}
+
 export default function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
   const { isAdmin, unreadCount } = useApp();
+  const inTelegram = isRunningInTelegram();
 
   return (
     <div
@@ -122,7 +132,7 @@ export default function BottomNav({ currentPage, onNavigate }: BottomNavProps) {
             </span>
           </button>
 
-          {isAdmin && (
+          {isAdmin && inTelegram && (
             <button
               className={`bottom-nav-item ${
                 currentPage === 'admin' ? 'active' : ''

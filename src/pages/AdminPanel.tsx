@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
+import AdminOtpGate from '@/components/admin/AdminOtpGate';
 import {
   adminGetStats, adminGetUsers, adminGetWithdrawals,
   adminUpdateWithdrawal, adminUpdateSetting, adminBanUser,
@@ -294,7 +295,13 @@ const CSS = `
 `;
 
 export default function AdminPanel() {
-  return <AdminPanelContent />;
+  const { telegramUser } = useApp();
+  if (!telegramUser) return null;
+  return (
+    <AdminOtpGate telegramId={telegramUser.id}>
+      <AdminPanelContent />
+    </AdminOtpGate>
+  );
 }
 
 function AdminPanelContent() {

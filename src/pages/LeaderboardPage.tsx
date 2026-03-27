@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { getLeaderboard, getActiveContests } from '@/lib/api';
 import { LeaderboardEntry, Contest } from '@/types/telegram';
 import { useApp } from '@/context/AppContext';
-import { supabase } from '@/integrations/supabase/client';
 
 type LeaderboardTab = 'points' | 'ads';
 type AdsSubTab = 'today' | 'yesterday' | 'week';
@@ -334,75 +333,36 @@ export default function LeaderboardPage() {
     setLoading(true);
 
     if (tab === 'points') {
-      /* ── FIX: fetch balances joined with users ── */
-      const { data: balances } = await supabase
-        .from('balances')
-        .select('user_id, points, total_earned, users:user_id(id, first_name, username, telegram_id, photo_url)')
-        .order('points', { ascending: false })
-        .limit(50);
-
-      if (balances && balances.length > 0) {
-        const prev: Record<number, number> = {};
-        leaders.forEach((l, i) => { prev[l.telegram_id] = i + 1; });
-        setPreviousRanks(prev);
-
-        const mapped: LeaderboardEntry[] = balances.map((b: any, i: number) => ({
-          id:           b.user_id,
-          user_id:      b.user_id,
-          telegram_id:  b.users?.telegram_id,
-          first_name:   b.users?.first_name || 'User',
-          username:     b.users?.username,
-          photo_url:    b.users?.photo_url,
-          total_points: b.points,
-          points:       b.points,
-          rank:         i + 1,
-        }));
-        setLeaders(mapped);
-      } else {
-        /* fallback to existing api */
-        const data = await getLeaderboard();
-        const newLeaders = (data || []).map((l: any, i: number) => ({
-          ...l,
-          total_points: l.total_points ?? l.points ?? 0,
-          rank: l.rank ?? i + 1,
-        }));
-        const prev: Record<number, number> = {};
-        leaders.forEach(l => { prev[l.telegram_id] = l.rank; });
-        setPreviousRanks(prev);
-        setLeaders(newLeaders);
-      }
+      const data = await getLeaderboard();
+      const newLeaders = (data || []).map((l: any, i: number) => ({
+        ...l,
+        id: l.id || l.user_id,
+        telegram_id: l.telegramId || l.telegram_id,
+        first_name: l.firstName || l.first_name || 'User',
+        photo_url: l.photoUrl || l.photo_url,
+        total_points: l.totalPoints ?? l.total_points ?? l.points ?? 0,
+        rank: l.rank ?? i + 1,
+      }));
+      const prev: Record<number, number> = {};
+      leaders.forEach(l => { prev[l.telegram_id] = l.rank; });
+      setPreviousRanks(prev);
+      setLeaders(newLeaders);
     }
 
     if (tab === 'ads') {
       const activeContests = await getActiveContests();
       setContests(activeContests as Contest[]);
 
-      const range = getDateRange(adsSubTab);
-      let query = supabase.from('ad_logs').select('user_id, created_at');
-      if (range.from) query = query.gte('created_at', range.from);
-      if (range.to)   query = query.lt('created_at', range.to);
-
-      const { data: adLogs, error } = await query;
-      if (error) { setAdLeaders([]); setLoading(false); return; }
-
-      const counts: Record<string, number> = {};
-      (adLogs || []).forEach((log: any) => {
-        counts[log.user_id] = (counts[log.user_id] || 0) + 1;
-      });
-
-      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 50);
-      if (sorted.length === 0) { setAdLeaders([]); setLoading(false); return; }
-
-      const userIds = sorted.map(([uid]) => uid);
-      const { data: users } = await supabase
-        .from('users').select('id, first_name, username, telegram_id, photo_url').in('id', userIds);
-
-      const userMap: Record<string, any> = {};
-      (users || []).forEach(u => { userMap[u.id] = u; });
-
-      setAdLeaders(sorted.map(([uid, score]) => ({
-        user_id: uid, score, users: userMap[uid] || {},
-      })));
+      // Use contest leaderboard for ads tab
+      if (activeContests.length > 0) {
+        const contestId = activeContests[0].id;
+        const entries = await fetch(`/api/contests/${contestId}/leaderboard`).then(r => r.json()).catch(() => []);
+        setAdLeaders((entries || []).map((e: any) => ({
+          user_id: e.user_id, score: e.score, users: e.users || {},
+        })));
+      } else {
+        setAdLeaders([]);
+      }
     }
 
     setLoading(false);

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useApp } from "@/context/AppContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AdsgramTaskProps {
   blockId: string;
@@ -13,27 +15,79 @@ export default function AdsgramTask({
   onReward,
   onError,
 }: AdsgramTaskProps) {
-  const taskRef = useRef<HTMLElement & { show?: () => void }>(null);
+  const { user, refreshBalance } = useApp();
+  const taskRef = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<"idle" | "done" | "error" | "no_banner">("idle");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const task = taskRef.current;
     if (!task) return;
+    let isMounted = true;
 
-    const handleReward = (e: Event) => {
+    const handleReward = async (e: Event) => {
+      if (!isMounted) return;
       setState("done");
       onReward?.((e as CustomEvent).detail);
+
+      // ── Credit balance ──
+      if (user) {
+        try {
+          const { data: bal } = await supabase
+            .from("balances")
+            .select("points, total_earned")
+            .eq("user_id", user.id)
+            .single();
+
+          if (bal) {
+            await supabase
+              .from("balances")
+              .update({
+                points: bal.points + rewardAmount,
+                total_earned: bal.total_earned + rewardAmount,
+              })
+              .eq("user_id", user.id);
+
+            await supabase.from("transactions").insert({
+              user_id: user.id,
+              type: "adsgram_task",
+              points: rewardAmount,
+              description: `🎬 Adsgram Task: +${rewardAmount} pts`,
+            });
+
+            await refreshBalance();
+          }
+        } catch (err) {
+          console.error("Failed to credit reward:", err);
+        }
+      }
+
+      setTimeout(() => {
+        if (!isMounted) return;
+        setState("idle");
+        setReloadKey((k) => k + 1);
+      }, 1200);
     };
 
     const handleError = (e: Event) => {
+      if (!isMounted) return;
       setState("error");
       onError?.((e as CustomEvent).detail);
-      setTimeout(() => setState("idle"), 3000);
+      setTimeout(() => {
+        if (!isMounted) return;
+        setState("idle");
+        setReloadKey((k) => k + 1);
+      }, 2500);
     };
 
     const handleNoBanner = () => {
+      if (!isMounted) return;
       setState("no_banner");
-      setTimeout(() => setState("idle"), 4000);
+      setTimeout(() => {
+        if (!isMounted) return;
+        setState("idle");
+        setReloadKey((k) => k + 1);
+      }, 3500);
     };
 
     task.addEventListener("reward", handleReward);
@@ -41,179 +95,206 @@ export default function AdsgramTask({
     task.addEventListener("bannerNotFound", handleNoBanner);
 
     return () => {
+      isMounted = false;
       task.removeEventListener("reward", handleReward);
       task.removeEventListener("error", handleError);
       task.removeEventListener("bannerNotFound", handleNoBanner);
     };
-  }, [onReward, onError]);
+  }, [reloadKey, onReward, onError, user, rewardAmount, refreshBalance]);
 
   return (
     <>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Rajdhani:wght@500;600&display=swap');
+
         .ags-wrap {
           position: relative;
           border-radius: 20px;
           overflow: hidden;
-          background: linear-gradient(135deg, #1e293b, #0f172a);
-          border: 1px solid rgba(255,255,255,0.08);
-          box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.07);
+        }
+        .ags-wrap::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 10%; right: 10%;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(255,190,0,0.35), transparent);
+          pointer-events: none;
+        }
+        .ags-wrap::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+          background-size: 28px 28px;
+          pointer-events: none;
+          border-radius: 20px;
         }
 
-        /* Overlay header above the raw web component */
+        .ags-inner { position: relative; z-index: 1; }
+
         .ags-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 14px 16px 0 16px;
         }
-
         .ags-left {
           display: flex;
           align-items: center;
-          gap: 11px;
+          gap: 12px;
         }
-
         .ags-icon {
-          width: 44px; height: 44px;
-          border-radius: 13px;
-          background: linear-gradient(45deg, #3b82f6, #60a5fa);
+          width: 46px; height: 46px;
+          border-radius: 14px;
+          background: rgba(255,190,0,0.1);
+          border: 1px solid rgba(255,190,0,0.25);
           display: flex; align-items: center; justify-content: center;
           font-size: 22px;
-          box-shadow: 0 3px 10px rgba(59,130,246,0.35);
+          box-shadow: 0 0 12px rgba(255,190,0,0.15);
           flex-shrink: 0;
         }
-
         .ags-title {
-          font-size: 14px;
+          font-family: 'Orbitron', monospace;
+          font-size: 11px;
           font-weight: 700;
-          color: #f3f4f6;
+          letter-spacing: 1px;
+          color: rgba(255,255,255,0.85);
+          margin-bottom: 3px;
         }
-
         .ags-sub {
+          font-family: 'Rajdhani', sans-serif;
           font-size: 12px;
-          color: #6b7280;
-          margin-top: 2px;
+          color: rgba(255,255,255,0.3);
+          letter-spacing: 0.5px;
         }
-
         .ags-badge {
+          font-family: 'Orbitron', monospace;
           font-size: 12px;
           font-weight: 700;
-          color: #fbbf24;
-          background: rgba(251,191,36,0.15);
-          border: 1px solid rgba(251,191,36,0.25);
-          padding: 4px 10px;
+          color: #ffbe00;
+          background: rgba(255,190,0,0.08);
+          border: 1px solid rgba(255,190,0,0.25);
+          padding: 5px 12px;
           border-radius: 20px;
-          white-space: nowrap;
+          letter-spacing: 1px;
           flex-shrink: 0;
+          box-shadow: 0 0 10px rgba(255,190,0,0.1);
         }
 
-        /* Let Adsgram render its own UI below, but style the container */
         adsgram-task {
           display: block;
           padding: 10px 16px 14px 16px;
         }
 
-        /* Override Adsgram's default "go" button styling */
-        adsgram-task button,
-        adsgram-task [slot="button"] {
-          background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-          color: white !important;
-          border: none !important;
-          border-radius: 12px !important;
-          font-weight: 700 !important;
-          font-size: 13px !important;
-          padding: 9px 18px !important;
-          cursor: pointer !important;
-          box-shadow: 0 3px 10px rgba(59,130,246,0.35) !important;
+        .ags-status {
+          margin: 0 16px 12px;
+          padding: 9px 14px;
+          border-radius: 12px;
+          text-align: center;
+          font-family: 'Orbitron', monospace;
+          font-size: 10px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .ags-status.error {
+          color: #f87171;
+          background: rgba(239,68,68,0.08);
+          border: 1px solid rgba(239,68,68,0.2);
+        }
+        .ags-status.nobanner {
+          color: rgba(255,255,255,0.25);
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.07);
         }
 
-        /* Done state overlay */
         .ags-done-overlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, #052e16cc, #0f172acc);
-          border-radius: 20px;
+          background: rgba(6,8,15,0.88);
+          backdrop-filter: blur(4px);
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: 6px;
-          backdrop-filter: blur(4px);
-          animation: agsFadeIn 0.3s ease;
+          z-index: 10;
+          border-radius: 20px;
+          animation: agsFadeIn 0.2s ease;
         }
-
-        .ags-done-overlay span:first-child {
-          font-size: 32px;
-        }
-
-        .ags-done-overlay span:last-child {
-          font-size: 13px;
-          font-weight: 700;
-          color: #4ade80;
-        }
-
-        .ags-error-bar {
-          margin: 0 16px 12px;
-          padding: 9px 14px;
-          background: rgba(220,38,38,0.15);
-          border: 1px solid rgba(220,38,38,0.3);
-          border-radius: 12px;
-          font-size: 12px;
-          color: #f87171;
-          font-weight: 600;
-          text-align: center;
-        }
-
-        .ags-nobanner-bar {
-          margin: 0 16px 12px;
-          padding: 9px 14px;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 12px;
-          font-size: 12px;
-          color: #6b7280;
-          font-weight: 600;
-          text-align: center;
-        }
-
         @keyframes agsFadeIn {
           from { opacity: 0; }
           to   { opacity: 1; }
         }
+        .ags-done-icon {
+          font-size: 32px;
+          animation: agsPop 0.4s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes agsPop {
+          from { transform: scale(0.4); opacity: 0; }
+          to   { transform: scale(1);   opacity: 1; }
+        }
+        .ags-done-label {
+          font-family: 'Orbitron', monospace;
+          font-size: 16px;
+          font-weight: 700;
+          color: #4ade80;
+          letter-spacing: 2px;
+          text-shadow: 0 0 16px rgba(74,222,128,0.6);
+          animation: agsPop 0.4s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        .ags-done-sub {
+          font-family: 'Rajdhani', sans-serif;
+          font-size: 12px;
+          color: rgba(74,222,128,0.5);
+          letter-spacing: 2px;
+        }
       `}</style>
 
       <div className="ags-wrap">
-        {/* Custom header — always visible */}
-        <div className="ags-header">
-          <div className="ags-left">
-            <div className="ags-icon">🎬</div>
-            <div>
-              <div className="ags-title">Watch Sponsored Video</div>
-              <div className="ags-sub">Short ad • Instant reward</div>
+        <div className="ags-inner">
+          <div className="ags-header">
+            <div className="ags-left">
+              <div className="ags-icon">🎬</div>
+              <div>
+                <div className="ags-title">Sponsored Video</div>
+                <div className="ags-sub">Short ad · Instant reward</div>
+              </div>
             </div>
+            <div className="ags-badge">+{rewardAmount} PTS</div>
           </div>
-          <div className="ags-badge">+{rewardAmount} pts</div>
+
+          {state === "error" && (
+            <div className="ags-status error">
+              <span>✕</span> Ad unavailable
+            </div>
+          )}
+
+          {state === "no_banner" && (
+            <div className="ags-status nobanner">
+              <span>—</span> No ads right now
+            </div>
+          )}
+
+          <adsgram-task
+            key={reloadKey}
+            ref={taskRef}
+            data-block-id={blockId}
+          />
         </div>
 
-        {/* Status bars */}
-        {state === "error" && (
-          <div className="ags-error-bar">❌ Ad unavailable — retrying shortly</div>
-        )}
-        {state === "no_banner" && (
-          <div className="ags-nobanner-bar">😔 No ads right now — check back later</div>
-        )}
-
-        {/* Adsgram renders its own button/UI here — we just style the wrapper */}
-        <adsgram-task
-          ref={taskRef}
-          data-block-id={blockId}
-        />
-
-        {/* Done overlay */}
         {state === "done" && (
           <div className="ags-done-overlay">
-            <span>✅</span>
-            <span>+{rewardAmount} pts claimed!</span>
+            <div className="ags-done-icon">✦</div>
+            <div className="ags-done-label">+{rewardAmount} PTS</div>
+            <div className="ags-done-sub">Points credited</div>
           </div>
         )}
       </div>

@@ -318,7 +318,7 @@ function AppContent() {
           </div>
 
           <a
-            href="https://t.me/ADS_rewardsbot"
+            href="https://t.me/Adsrewartsbot/app"
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -335,7 +335,7 @@ function AppContent() {
         </div>
 
         <div style={{ marginTop: 24, fontSize: 11, color: 'hsl(220 15% 30%)', textAlign: 'center' }}>
-          @ADS_rewardsbot
+          @adsrewartsbot
         </div>
       </div>
     );

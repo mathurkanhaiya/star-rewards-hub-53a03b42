@@ -5,28 +5,22 @@ import * as schema from './schema.js';
 const { Pool } = pg;
 
 function getConnectionString(): string {
-  const rawUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
-  if (!rawUrl) throw new Error('No database connection configured.');
-
-  try {
-    const parsed = new URL(rawUrl);
-    const host = parsed.hostname;
-
-    // Direct Supabase DB connection → rewrite to transaction pooler (port 6543)
-    // Try multiple regions in order of proximity
-    if (host.startsWith('db.') && host.endsWith('.supabase.co')) {
-      const projectRef = host.replace('db.', '').replace('.supabase.co', '');
-      const password = encodeURIComponent(parsed.password);
-      // US East 1 (most common for projects near Atlanta/US)
-      const poolerUrl = `postgresql://postgres.${projectRef}:${password}@aws-0-us-east-1.pooler.supabase.com:6543/postgres`;
-      console.log('[DB] Using Supabase pooler (us-east-1, port 6543)');
-      return poolerUrl;
-    }
-
-    return rawUrl;
-  } catch {
-    return rawUrl!;
+  // Prefer explicit pooler URL (Transaction mode, port 6543, IPv4)
+  if (process.env.SUPABASE_POOLER_URL) {
+    console.log('[DB] Using SUPABASE_POOLER_URL (transaction pooler)');
+    return process.env.SUPABASE_POOLER_URL;
   }
+  // Fallback to direct DB URL
+  if (process.env.SUPABASE_DB_URL) {
+    console.log('[DB] Using SUPABASE_DB_URL (direct connection)');
+    return process.env.SUPABASE_DB_URL;
+  }
+  // Fallback to Replit PostgreSQL
+  if (process.env.DATABASE_URL) {
+    console.log('[DB] Using DATABASE_URL (Replit PostgreSQL)');
+    return process.env.DATABASE_URL;
+  }
+  throw new Error('No database connection configured.');
 }
 
 const connectionString = getConnectionString();

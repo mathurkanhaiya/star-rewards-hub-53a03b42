@@ -3,7 +3,6 @@ import { useApp } from '@/context/AppContext';
 import { useRewardedAd } from '@/hooks/useAdsgram';
 import { supabase } from '@/integrations/supabase/client';
 import { logAdWatch } from '@/lib/api';
-import { Progress } from '@/components/ui/progress';
 
 function triggerHaptic(type: 'success' | 'error' | 'impact') {
   if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
@@ -24,124 +23,226 @@ interface LeaderEntry {
 
 type GameState = 'menu' | 'playing' | 'gameover';
 
+const MAX_DAILY_GAMES    = 5;
+const MAX_SCORE_PER_GAME = 150;
+
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+@keyframes tcBeam       { 0%,100%{opacity:0.3;transform:scaleY(0.8)} 50%{opacity:1;transform:scaleY(1)} }
+@keyframes tcPulseBlock { 0%,100%{border-color:rgba(255,190,0,0.2)} 50%{border-color:rgba(255,190,0,0.6);box-shadow:0 0 8px rgba(255,190,0,0.2)} }
+@keyframes tcPipPop     { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+@keyframes tcLimitPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+.tc-root { font-family:'Rajdhani',sans-serif; background:#06080f; min-height:100vh; padding:20px 16px 112px; position:relative; overflow:hidden; color:#fff; user-select:none; -webkit-user-select:none; }
+.tc-bg { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+.tc-beam { position:absolute; width:1px; background:linear-gradient(to bottom,transparent,rgba(255,190,0,0.15),transparent); animation:tcBeam 4s ease-in-out infinite; }
+.tc-beam:nth-child(1){left:15%;height:60%;top:10%;animation-delay:0s}
+.tc-beam:nth-child(2){left:40%;height:40%;top:30%;animation-delay:1.2s}
+.tc-beam:nth-child(3){left:65%;height:70%;top:5%;animation-delay:0.6s}
+.tc-beam:nth-child(4){left:85%;height:45%;top:20%;animation-delay:2s}
+.tc-scanline { position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px); pointer-events:none; z-index:0; }
+.tc-content  { position:relative; z-index:1; }
+
+.tc-limit-wrap  { display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:18px; }
+.tc-limit-label { font-family:'Rajdhani',sans-serif; font-size:11px; letter-spacing:2px; color:rgba(255,255,255,0.25); text-transform:uppercase; display:flex; align-items:center; gap:6px; }
+.tc-limit-label span { color:#ffbe00; font-weight:700; }
+.tc-pips { display:flex; gap:7px; }
+.tc-pip  { width:28px; height:8px; border-radius:4px; transition:background 0.3s,box-shadow 0.3s; animation:tcPipPop 0.3s ease both; }
+.tc-pip.used  { background:#ffbe00; box-shadow:0 0 8px rgba(255,190,0,0.5); }
+.tc-pip.avail { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); }
+
+.tc-maxed { background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:16px; padding:16px; text-align:center; margin-bottom:16px; position:relative; overflow:hidden; }
+.tc-maxed::before { content:''; position:absolute; top:0; left:10%; right:10%; height:1px; background:linear-gradient(90deg,transparent,rgba(239,68,68,0.35),transparent); }
+.tc-maxed-icon  { font-size:36px; margin-bottom:8px; animation:tcLimitPulse 2s ease-in-out infinite; }
+.tc-maxed-title { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:2px; color:#ef4444; margin-bottom:4px; }
+.tc-maxed-sub   { font-size:12px; color:rgba(255,255,255,0.3); letter-spacing:1px; }
+
+.tc-tower-visual { display:flex; flex-direction:column; align-items:center; gap:3px; margin-bottom:20px; }
+.tc-floor-block  { border-radius:4px; border:1px solid rgba(255,190,0,0.3); background:rgba(255,190,0,0.08); animation:tcPulseBlock 2s ease-in-out infinite; }
+.tc-game-title   { font-family:'Bebas Neue',sans-serif; font-size:52px; letter-spacing:4px; line-height:1; color:#ffbe00; text-shadow:0 0 30px rgba(255,190,0,0.5),0 0 60px rgba(255,190,0,0.2); text-align:center; margin-bottom:4px; }
+.tc-game-sub     { font-size:12px; letter-spacing:5px; color:rgba(255,255,255,0.3); text-transform:uppercase; text-align:center; margin-bottom:28px; }
+
+.tc-stat-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:24px; }
+.tc-stat     { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:14px; padding:14px; text-align:center; }
+.tc-stat-val { font-family:'Bebas Neue',sans-serif; font-size:32px; color:#ffbe00; letter-spacing:1px; line-height:1; }
+.tc-stat-label { font-size:10px; letter-spacing:2px; color:rgba(255,255,255,0.3); text-transform:uppercase; margin-top:2px; }
+
+.tc-cap-banner { display:flex; align-items:center; justify-content:space-between; background:rgba(255,190,0,0.05); border:1px solid rgba(255,190,0,0.12); border-radius:12px; padding:8px 14px; margin-bottom:14px; }
+.tc-cap-label  { font-family:'Rajdhani',sans-serif; font-size:11px; letter-spacing:1px; color:rgba(255,255,255,0.25); text-transform:uppercase; }
+.tc-cap-val    { font-family:'Bebas Neue',sans-serif; font-size:16px; color:#ffbe00; letter-spacing:1px; }
+
+.tc-btn-primary   { width:100%; padding:18px; border-radius:14px; border:none; background:linear-gradient(135deg,#ffbe00,#ff8c00); color:#000; font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:3px; cursor:pointer; transition:transform 0.1s,box-shadow 0.2s; box-shadow:0 4px 24px rgba(255,190,0,0.3); margin-bottom:10px; display:block; }
+.tc-btn-primary:active   { transform:scale(0.97); }
+.tc-btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+.tc-btn-secondary { width:100%; padding:14px; border-radius:14px; border:1px solid rgba(255,190,0,0.3); background:rgba(255,190,0,0.06); color:#ffbe00; font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:2px; cursor:pointer; transition:transform 0.1s,background 0.2s; margin-bottom:10px; display:block; }
+.tc-btn-secondary:active { transform:scale(0.97); }
+
+.tc-remaining { display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border-radius:20px; margin-bottom:12px; font-size:12px; letter-spacing:0.5px; }
+
+.tc-hud       { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
+.tc-hud-floor { font-family:'Bebas Neue',sans-serif; font-size:64px; color:#ffbe00; line-height:1; text-shadow:0 0 20px rgba(255,190,0,0.4); }
+.tc-hud-label { font-size:10px; letter-spacing:3px; color:rgba(255,255,255,0.25); text-transform:uppercase; margin-bottom:2px; }
+.tc-hud-score { font-family:'Bebas Neue',sans-serif; font-size:28px; color:#fff; text-align:right; }
+.tc-hud-cap   { font-family:'Bebas Neue',sans-serif; font-size:12px; letter-spacing:1px; color:#ef4444; text-align:right; margin-top:2px; }
+
+.tc-speed-bar-wrap { margin-bottom:16px; }
+.tc-speed-track { height:3px; background:rgba(255,255,255,0.07); border-radius:99px; overflow:hidden; }
+.tc-speed-fill  { height:100%; border-radius:99px; background:linear-gradient(90deg,#22d3ee,#ffbe00,#ef4444); transition:width 0.5s ease; }
+
+.tc-reaction-wrap { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:20px; padding:24px 20px; margin-bottom:16px; position:relative; cursor:pointer; }
+.tc-tap-hint { text-align:center; font-size:11px; letter-spacing:3px; color:rgba(255,255,255,0.25); text-transform:uppercase; margin-bottom:20px; }
+.tc-bar-track { position:relative; height:44px; border-radius:10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); overflow:hidden; margin-bottom:12px; }
+.tc-zone   { position:absolute; top:0; height:100%; border-radius:8px; transition:left 0.15s ease; }
+.tc-cursor { position:absolute; top:0; width:4px; height:100%; border-radius:2px; transform:translateX(-50%); }
+.tc-bar-meta { display:flex; justify-content:space-between; font-size:11px; letter-spacing:2px; color:rgba(255,255,255,0.2); text-transform:uppercase; }
+
+.tc-powerups { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; min-height:28px; }
+.tc-badge    { display:flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:1px; }
+
+.tc-multiplier-btn { width:100%; background:rgba(255,190,0,0.06); border:1px solid rgba(255,190,0,0.3); border-radius:14px; padding:12px; text-align:center; cursor:pointer; color:#fff; transition:transform 0.1s,background 0.15s; }
+.tc-multiplier-btn:active { transform:scale(0.95); }
+.tc-powerup-icon { font-size:22px; margin-bottom:4px; }
+.tc-powerup-name { font-family:'Bebas Neue',sans-serif; font-size:15px; letter-spacing:1px; }
+.tc-powerup-hint { font-size:10px; letter-spacing:1px; color:rgba(255,255,255,0.3); margin-top:1px; }
+
+.tc-result-ring  { width:120px; height:120px; border-radius:50%; border:3px solid rgba(255,190,0,0.3); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; box-shadow:0 0 40px rgba(255,190,0,0.15),inset 0 0 40px rgba(255,190,0,0.05); }
+.tc-result-floor { font-family:'Bebas Neue',sans-serif; font-size:52px; color:#ffbe00; line-height:1; }
+.tc-result-label { font-size:10px; letter-spacing:3px; color:rgba(255,255,255,0.3); text-align:center; text-transform:uppercase; margin-bottom:4px; }
+.tc-result-pts   { font-family:'Bebas Neue',sans-serif; font-size:22px; color:#4ade80; text-align:center; margin-bottom:6px; letter-spacing:2px; }
+.tc-result-record{ text-align:center; font-size:12px; letter-spacing:3px; color:#4ade80; margin-bottom:24px; text-transform:uppercase; }
+.tc-divider      { height:1px; background:rgba(255,255,255,0.06); margin:16px 0; }
+
+.tc-lb-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+.tc-lb-back   { background:none; border:none; color:#ffbe00; font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:2px; cursor:pointer; padding:0; }
+.tc-lb-title  { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:3px; color:#fff; }
+.tc-lb-row    { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:12px 14px; margin-bottom:8px; }
+.tc-lb-rank   { font-family:'Bebas Neue',sans-serif; font-size:20px; width:32px; text-align:center; flex-shrink:0; }
+.tc-lb-name   { flex:1; font-size:15px; font-weight:600; }
+.tc-lb-sub    { font-size:11px; color:rgba(255,255,255,0.3); letter-spacing:1px; }
+.tc-lb-floor  { font-family:'Bebas Neue',sans-serif; font-size:20px; color:#ffbe00; letter-spacing:1px; }
+
+.tc-flash { position:fixed; inset:0; pointer-events:none; z-index:99; opacity:0; transition:opacity 0.05s; }
+.tc-flash.success { background:rgba(74,222,128,0.12); }
+.tc-flash.fail    { background:rgba(239,68,68,0.15); }
+.tc-flash.show    { opacity:1; }
+`;
+
 export default function TowerClimbPage() {
-  const { user, balance, refreshBalance } = useApp();
-  const [gameState, setGameState] = useState<GameState>('menu');
-  const [floor, setFloor] = useState(0);
-  const [score, setScore] = useState(0);
-  const [bestFloor, setBestFloor] = useState(0);
-  const [totalRuns, setTotalRuns] = useState(0);
-
-  // Reaction game state
-  const [targetZone, setTargetZone] = useState(50);
-  const [cursorPos, setCursorPos] = useState(0);
-  const [speed, setSpeed] = useState(2);
-  const [direction, setDirection] = useState(1);
-  const [hasShield, setHasShield] = useState(false);
-  const [revivesUsed, setRevivesUsed] = useState(0);
-  const [shieldsUsed, setShieldsUsed] = useState(0);
-  const [showResult, setShowResult] = useState<'success' | 'fail' | null>(null);
-  const [multiplier, setMultiplier] = useState(1);
+  const { user, refreshBalance } = useApp();
+  const [gameState, setGameState]       = useState<GameState>('menu');
+  const [floor, setFloor]               = useState(0);
+  const [score, setScore]               = useState(0);
+  const [bestFloor, setBestFloor]       = useState(0);
+  const [totalRuns, setTotalRuns]       = useState(0);
+  const [targetZone, setTargetZone]     = useState(50);
+  const [cursorPos, setCursorPos]       = useState(0);
+  const [speed, setSpeed]               = useState(2.5);
+  const [showResult, setShowResult]     = useState<'success'|'fail'|null>(null);
+  const [multiplier, setMultiplier]     = useState(1);
   const [multiplierFloors, setMultiplierFloors] = useState(0);
-
-  // Leaderboard
-  const [leaderboard, setLeaderboard] = useState<LeaderEntry[]>([]);
+  const [leaderboard, setLeaderboard]   = useState<LeaderEntry[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
-  const animRef = useRef<number>(0);
-  const cursorRef = useRef(0);
-  const dirRef = useRef(1);
-  const speedRef = useRef(2);
+  const [gamesPlayedToday, setGamesPlayedToday] = useState(0);
+  const [limitLoading, setLimitLoading]         = useState(true);
+  const isMaxed   = gamesPlayedToday >= MAX_DAILY_GAMES;
+  const remaining = MAX_DAILY_GAMES - gamesPlayedToday;
 
-  // Ad hooks
-  const onReviveReward = useCallback(() => {
-    triggerHaptic('success');
-    setRevivesUsed(r => r + 1);
-    setGameState('playing');
-    setShowResult(null);
-    if (user) logAdWatch(user.id, 'tower_revive', 0);
-  }, [user]);
+  const animRef             = useRef<number>(0);
+  const cursorRef           = useRef(0);
+  const dirRef              = useRef(1);
+  const speedRef            = useRef(2.5);
+  const floorRef            = useRef(0);
+  const scoreRef            = useRef(0);
+  const multiplierRef       = useRef(1);
+  const multiplierFloorsRef = useRef(0);
 
-  const onShieldReward = useCallback(() => {
-    triggerHaptic('success');
-    setHasShield(true);
-    setShieldsUsed(s => s + 1);
-    if (user) logAdWatch(user.id, 'tower_shield', 0);
-  }, [user]);
-  
-  const onStartReward = useCallback(() => {
-  startGame(); // start only AFTER ad finishes
-  if (user) logAdWatch(user.id, 'tower_start', 0);
-}, [user, startGame]);
-
-  const onMultiplierReward = useCallback(() => {
-    triggerHaptic('success');
-    setMultiplier(2);
-    setMultiplierFloors(3);
-    if (user) logAdWatch(user.id, 'tower_2x', 0);
-  }, [user]);
-
-  const { showAd: showStartAd } = useRewardedAd(onStartReward);
-  const { showAd: showReviveAd } = useRewardedAd(onReviveReward);
-  const { showAd: showShieldAd } = useRewardedAd(onShieldReward);
-  const { showAd: showMultiplierAd } = useRewardedAd(onMultiplierReward);
-
-  // Load best score
   useEffect(() => {
     if (!user) return;
     loadStats();
     loadLeaderboard();
+    loadTodayCount();
   }, [user]);
+
+  async function loadTodayCount() {
+    setLimitLoading(true);
+    const start = new Date(); start.setUTCHours(0,0,0,0);
+    const { count } = await supabase
+      .from('tower_runs')
+      .select('id', { count:'exact', head:true })
+      .eq('user_id', user!.id)
+      .gte('created_at', start.toISOString());
+    setGamesPlayedToday(count || 0);
+    setLimitLoading(false);
+  }
 
   async function loadStats() {
     if (!user) return;
     const { data } = await supabase
       .from('tower_leaderboard')
-      .select('best_floor, total_runs')
+      .select('best_floor,total_runs')
       .eq('user_id', user.id)
       .maybeSingle();
-    if (data) {
-      setBestFloor(data.best_floor);
-      setTotalRuns(data.total_runs);
-    }
+    if (data) { setBestFloor(data.best_floor); setTotalRuns(data.total_runs); }
   }
 
   async function loadLeaderboard() {
     const { data } = await supabase
       .from('tower_leaderboard')
-      .select('user_id, best_floor, total_runs')
-      .order('best_floor', { ascending: false })
+      .select('user_id,best_floor,total_runs')
+      .order('best_floor', { ascending:false })
       .limit(20);
     if (!data || data.length === 0) { setLeaderboard([]); return; }
-
     const userIds = data.map(d => d.user_id);
     const { data: users } = await supabase
-      .from('users')
-      .select('id, first_name, username, photo_url')
-      .in('id', userIds);
-
+      .from('users').select('id,first_name,username,photo_url').in('id', userIds);
     const userMap: Record<string, any> = {};
     (users || []).forEach(u => { userMap[u.id] = u; });
-
     setLeaderboard(data.map(d => ({
       ...d,
       first_name: userMap[d.user_id]?.first_name || 'Unknown',
-      username: userMap[d.user_id]?.username || '',
-      photo_url: userMap[d.user_id]?.photo_url,
+      username:   userMap[d.user_id]?.username   || '',
+      photo_url:  userMap[d.user_id]?.photo_url,
     })));
   }
 
-  // Animation loop
-  useEffect(() => {
-    if (gameState !== 'playing') {
-      cancelAnimationFrame(animRef.current);
-      return;
-    }
+  const onMultiplierReward = useCallback(() => {
+    triggerHaptic('success');
+    multiplierRef.current = 2;
+    multiplierFloorsRef.current = 3;
+    setMultiplier(2);
+    setMultiplierFloors(3);
+    if (user) logAdWatch(user.id, 'tower_2x', 0);
+  }, [user]);
 
+  const startGame = useCallback(() => {
+    floorRef.current = 0; scoreRef.current = 0;
+    multiplierRef.current = 1; multiplierFloorsRef.current = 0;
+    setFloor(0); setScore(0);
+    setMultiplier(1); setMultiplierFloors(0);
+    cursorRef.current = 0; dirRef.current = 1;
+    speedRef.current = 2.5;
+    setSpeed(2.5); setCursorPos(0);
+    setTargetZone(30 + Math.random() * 40);
+    setGameState('playing');
+    setShowResult(null);
+    setGamesPlayedToday(p => p + 1);
+    triggerHaptic('impact');
+    if (user) logAdWatch(user.id, 'tower_start', 0);
+  }, [user]);
+
+  const onStartReward = useCallback(() => { startGame(); }, [startGame]);
+
+  const { showAd: showStartAd }      = useRewardedAd(onStartReward);
+  const { showAd: showMultiplierAd } = useRewardedAd(onMultiplierReward);
+
+  useEffect(() => {
+    if (gameState !== 'playing') { cancelAnimationFrame(animRef.current); return; }
     function animate() {
-      cursorRef.current += dirRef.current * speedRef.current;
+      cursorRef.current += dirRef.current * speedRef.current * 0.5;
       if (cursorRef.current >= 100) { cursorRef.current = 100; dirRef.current = -1; }
-      if (cursorRef.current <= 0) { cursorRef.current = 0; dirRef.current = 1; }
+      if (cursorRef.current <= 0)   { cursorRef.current = 0;   dirRef.current = 1;  }
       setCursorPos(cursorRef.current);
       animRef.current = requestAnimationFrame(animate);
     }
@@ -149,64 +250,37 @@ export default function TowerClimbPage() {
     return () => cancelAnimationFrame(animRef.current);
   }, [gameState]);
 
-  function startGame() {
-    setFloor(0);
-    setScore(0);
-    setHasShield(false);
-    setRevivesUsed(0);
-    setShieldsUsed(0);
-    setMultiplier(1);
-    setMultiplierFloors(0);
-    cursorRef.current = 0;
-    dirRef.current = 1;
-    speedRef.current = 2;
-    setSpeed(2);
-    setDirection(1);
-    setCursorPos(0);
-    setTargetZone(30 + Math.random() * 40);
-    setGameState('playing');
-    setShowResult(null);
-    triggerHaptic('impact');
-  }
-
   function handleTap() {
     if (gameState !== 'playing') return;
     triggerHaptic('impact');
-
-    const zoneSize = Math.max(8, 25 - floor * 0.5);
+    const currentFloor = floorRef.current;
+    const zoneSize  = Math.max(6, 22 - currentFloor * 0.7);
     const zoneStart = targetZone - zoneSize / 2;
-    const zoneEnd = targetZone + zoneSize / 2;
+    const zoneEnd   = targetZone + zoneSize / 2;
 
     if (cursorRef.current >= zoneStart && cursorRef.current <= zoneEnd) {
-      // Success
-      const pts = (0 + floor * 1) * multiplier;
-      setScore(s => s + pts);
-      setFloor(f => f + 1);
+      const rawPts = Math.max(1, Math.floor(currentFloor * 0.25)) * multiplierRef.current;
+      const pts    = Math.min(rawPts, MAX_SCORE_PER_GAME - scoreRef.current);
+      if (pts > 0) scoreRef.current += pts;
+      floorRef.current += 1;
+      setScore(scoreRef.current);
+      setFloor(floorRef.current);
       setShowResult('success');
-      setTimeout(() => setShowResult(null), 300);
+      setTimeout(() => setShowResult(null), 250);
 
-      if (multiplierFloors > 0) {
-        setMultiplierFloors(f => f - 1);
-        if (multiplierFloors <= 1) setMultiplier(1);
+      if (multiplierFloorsRef.current > 0) {
+        multiplierFloorsRef.current -= 1;
+        setMultiplierFloors(multiplierFloorsRef.current);
+        if (multiplierFloorsRef.current <= 0) { multiplierRef.current = 1; setMultiplier(1); }
       }
 
-      // Increase difficulty
-      const newSpeed = Math.min(6, 2 + (floor + 1) * 0.15);
+      const newSpeed = Math.min(9, 2.5 + floorRef.current * 0.22);
       speedRef.current = newSpeed;
       setSpeed(newSpeed);
       setTargetZone(10 + Math.random() * 80);
       cursorRef.current = Math.random() * 100;
       triggerHaptic('success');
     } else {
-      // Fail
-      if (hasShield) {
-        setHasShield(false);
-        setShowResult('success');
-        setTimeout(() => setShowResult(null), 300);
-        setTargetZone(10 + Math.random() * 80);
-        triggerHaptic('impact');
-        return;
-      }
       setShowResult('fail');
       triggerHaptic('error');
       endGame();
@@ -214,274 +288,299 @@ export default function TowerClimbPage() {
   }
 
   async function endGame() {
+    const finalFloor = floorRef.current;
+    const finalScore = Math.min(scoreRef.current, MAX_SCORE_PER_GAME);
     setGameState('gameover');
     cancelAnimationFrame(animRef.current);
     if (!user) return;
 
-    // Save run
     await supabase.from('tower_runs').insert({
       user_id: user.id,
-      floors_reached: floor,
-      points_earned: score,
-      revives_used: revivesUsed,
-      shields_used: shieldsUsed,
+      floors_reached: finalFloor,
+      points_earned: finalScore,
     });
 
-    // Update leaderboard
-    const { data: existing } = await supabase
-      .from('tower_leaderboard')
-      .select('id, best_floor, total_runs, total_floors')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
+    const { data: existing } = await supabase.from('tower_leaderboard')
+      .select('id,best_floor,total_runs,total_floors').eq('user_id', user.id).maybeSingle();
     if (existing) {
       await supabase.from('tower_leaderboard').update({
-        best_floor: Math.max(existing.best_floor, floor),
-        total_floors: existing.total_floors + floor,
-        total_runs: existing.total_runs + 1,
-        updated_at: new Date().toISOString(),
+        best_floor:   Math.max(existing.best_floor, finalFloor),
+        total_floors: existing.total_floors + finalFloor,
+        total_runs:   existing.total_runs + 1,
+        updated_at:   new Date().toISOString(),
       }).eq('id', existing.id);
     } else {
       await supabase.from('tower_leaderboard').insert({
-        user_id: user.id,
-        best_floor: floor,
-        total_floors: floor,
-        total_runs: 1,
+        user_id: user.id, best_floor: finalFloor, total_floors: finalFloor, total_runs: 1,
       });
     }
 
-    // Award points to balance
-    if (score > 0) {
-      const { data: bal } = await supabase.from('balances').select('points, total_earned').eq('user_id', user.id).single();
+    if (finalScore > 0) {
+      const { data: bal } = await supabase
+        .from('balances').select('points,total_earned').eq('user_id', user.id).single();
       if (bal) {
         await supabase.from('balances').update({
-          points: bal.points + score,
-          total_earned: bal.total_earned + score,
+          points: bal.points + finalScore,
+          total_earned: bal.total_earned + finalScore,
         }).eq('user_id', user.id);
         await supabase.from('transactions').insert({
-          user_id: user.id,
-          type: 'tower_climb',
-          points: score,
-          description: `🏗️ Tower Climb: Floor ${floor}`,
+          user_id: user.id, type: 'tower_climb', points: finalScore,
+          description: `🏗️ Tower Climb: Floor ${finalFloor} (+${finalScore} pts)`,
         });
       }
       await refreshBalance();
     }
 
-    setBestFloor(prev => Math.max(prev, floor));
+    setBestFloor(prev => Math.max(prev, finalFloor));
     setTotalRuns(prev => prev + 1);
     loadLeaderboard();
   }
 
-  const zoneSize = Math.max(8, 25 - floor * 0.5);
+  const zoneSize      = Math.max(6, 22 - floor * 0.7);
+  const speedPct      = Math.min(100, ((speed - 2.5) / 6.5) * 100);
+  const nextRemaining = MAX_DAILY_GAMES - gamesPlayedToday;
+  const scoreCapped   = score >= MAX_SCORE_PER_GAME;
 
-  // ---- MENU ----
-  if (showLeaderboard) {
-    return (
-      <div className="px-4 pb-28">
-        <button onClick={() => setShowLeaderboard(false)} className="mb-4 text-sm" style={{ color: 'hsl(var(--gold))' }}>
-          ← Back
-        </button>
-        <h2 className="text-xl font-bold mb-4 shimmer-text">🏗️ Tower Leaderboard</h2>
-        <div className="space-y-2">
+  /* ── LEADERBOARD ── */
+  if (showLeaderboard) return (
+    <>
+      <style>{CSS}</style>
+      <div className="tc-root">
+        <div className="tc-bg">{[1,2,3,4].map(i=><div key={i} className="tc-beam"/>)}</div>
+        <div className="tc-scanline"/>
+        <div className="tc-content">
+          <div className="tc-lb-header">
+            <button className="tc-lb-back" onClick={() => setShowLeaderboard(false)}>← BACK</button>
+            <div className="tc-lb-title">LEADERBOARD</div>
+          </div>
+          {leaderboard.length === 0 && (
+            <div style={{ textAlign:'center', color:'rgba(255,255,255,0.3)', padding:'40px 0', letterSpacing:'2px', fontSize:'12px' }}>
+              NO PLAYERS YET
+            </div>
+          )}
           {leaderboard.map((entry, i) => (
-            <div key={entry.user_id} className="glass-card rounded-xl p-3 flex items-center gap-3">
-              <div className="text-lg font-bold w-8 text-center" style={{ color: i < 3 ? 'hsl(var(--gold))' : 'hsl(var(--muted-foreground))' }}>
-                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+            <div key={entry.user_id} className="tc-lb-row"
+              style={i < 3 ? { borderColor:`rgba(255,190,0,${0.3 - i * 0.08})` } : {}}>
+              <div className="tc-lb-rank" style={{ color: i===0?'#ffbe00':i===1?'#a0a0b0':i===2?'#cd7f32':'rgba(255,255,255,0.3)' }}>
+                {i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`}
               </div>
-              <div className="flex-1">
-                <div className="font-semibold text-sm">{entry.first_name}</div>
-                <div className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
-                  {entry.total_runs} runs
-                </div>
+              <div style={{ flex:1 }}>
+                <div className="tc-lb-name">{entry.first_name}</div>
+                <div className="tc-lb-sub">{entry.total_runs} RUNS</div>
               </div>
-              <div className="font-bold" style={{ color: 'hsl(var(--gold))' }}>
-                Floor {entry.best_floor}
-              </div>
+              <div className="tc-lb-floor">FL {entry.best_floor}</div>
             </div>
           ))}
-          {leaderboard.length === 0 && (
-            <div className="text-center py-8" style={{ color: 'hsl(var(--muted-foreground))' }}>No players yet</div>
-          )}
         </div>
       </div>
-    );
-  }
+    </>
+  );
 
-  if (gameState === 'menu') {
-    return (
-      <div className="px-4 pb-28">
-        <div className="text-center mb-6">
-          <div className="text-6xl mb-3 animate-float">🏗️</div>
-          <h2 className="text-2xl font-bold shimmer-text mb-1">Tower Climb</h2>
-          <p className="text-sm" style={{ color: 'hsl(var(--muted-foreground))' }}>
-            Tap at the right time to climb higher!
-          </p>
-        </div>
-
-        <div className="glass-card rounded-2xl p-4 mb-4">
-          <div className="flex justify-between text-sm mb-2">
-            <span style={{ color: 'hsl(var(--muted-foreground))' }}>Best Floor</span>
-            <span className="font-bold" style={{ color: 'hsl(var(--gold))' }}>{bestFloor}</span>
+  /* ── MENU ── */
+  if (gameState === 'menu') return (
+    <>
+      <style>{CSS}</style>
+      <div className="tc-root">
+        <div className="tc-bg">{[1,2,3,4].map(i=><div key={i} className="tc-beam"/>)}</div>
+        <div className="tc-scanline"/>
+        <div className="tc-content">
+          <div className="tc-tower-visual">
+            {[...Array(6)].map((_,i) => (
+              <div key={i} className="tc-floor-block" style={{
+                width:`${70+i*8}px`, height:'12px',
+                animationDelay:`${i*0.2}s`, opacity:0.4+i*0.1,
+              }}/>
+            ))}
           </div>
-          <div className="flex justify-between text-sm">
-            <span style={{ color: 'hsl(var(--muted-foreground))' }}>Total Runs</span>
-            <span className="font-bold">{totalRuns}</span>
+
+          <div className="tc-game-title">TOWER<br/>CLIMB</div>
+          <div className="tc-game-sub">TAP · RISE · SURVIVE</div>
+
+          <div className="tc-limit-wrap">
+            <div className="tc-limit-label">
+              Daily Runs &nbsp;
+              <span>{limitLoading ? '...' : `${remaining} left`}</span>
+            </div>
+            <div className="tc-pips">
+              {Array.from({ length: MAX_DAILY_GAMES }, (_, i) => (
+                <div key={i}
+                  className={`tc-pip ${i < gamesPlayedToday ? 'used' : 'avail'}`}
+                  style={{ animationDelay:`${i * 0.06}s` }}
+                />
+              ))}
+            </div>
           </div>
-        </div>
 
-       <button
-  onClick={async () => {
-    try {
-      await showStartAd();
-    } catch (err) {
-      console.error('Start ad failed:', err);
-    }
-  }}
-  className="w-full btn-gold rounded-2xl py-4 text-lg font-bold mb-3"
->
-  🚀 Start Climbing
-</button>
+          <div className="tc-cap-banner">
+            <div className="tc-cap-label">Max per run</div>
+            <div className="tc-cap-val">{MAX_SCORE_PER_GAME} PTS</div>
+          </div>
 
-        <button onClick={() => setShowLeaderboard(true)} className="w-full glass-card rounded-2xl py-3 text-sm font-semibold neon-border-gold">
-          🏆 Leaderboard
-        </button>
-      </div>
-    );
-  }
-
-  // ---- GAME OVER ----
-  if (gameState === 'gameover') {
-    return (
-      <div className="px-4 pb-28">
-        <div className="text-center mb-6">
-          <div className="text-6xl mb-3">💥</div>
-          <h2 className="text-2xl font-bold mb-2" style={{ color: 'hsl(var(--destructive))' }}>Game Over!</h2>
-          <div className="text-4xl font-black mb-1" style={{ color: 'hsl(var(--gold))' }}>Floor {floor}</div>
-          <div className="text-sm" style={{ color: 'hsl(var(--muted-foreground))' }}>+{score} points earned</div>
-          {floor > bestFloor - 1 && floor > 0 && (
-            <div className="text-sm font-bold mt-1" style={{ color: 'hsl(var(--green-reward))' }}>🎉 New Record!</div>
+          {isMaxed && (
+            <div className="tc-maxed">
+              <div className="tc-maxed-icon">🔒</div>
+              <div className="tc-maxed-title">DAILY LIMIT REACHED</div>
+              <div className="tc-maxed-sub">Come back tomorrow for 5 more runs</div>
+            </div>
           )}
+
+          <div className="tc-stat-row">
+            <div className="tc-stat">
+              <div className="tc-stat-val">{bestFloor}</div>
+              <div className="tc-stat-label">Best Floor</div>
+            </div>
+            <div className="tc-stat">
+              <div className="tc-stat-val">{totalRuns}</div>
+              <div className="tc-stat-label">Total Runs</div>
+            </div>
+          </div>
+
+          <button className="tc-btn-primary" onClick={() => showStartAd()}
+            disabled={isMaxed || limitLoading}>
+            {isMaxed ? '🔒  DAILY LIMIT REACHED' : '🚀  START CLIMBING'}
+          </button>
+          <button className="tc-btn-secondary" onClick={() => setShowLeaderboard(true)}>
+            🏆 LEADERBOARD
+          </button>
         </div>
-
-        {/* Revive */}
-        <button
-          onClick={async () => {
-            await showReviveAd();
-          }}
-          className="w-full btn-purple rounded-2xl py-4 text-lg font-bold mb-3"
-        >
-          🎬 Watch Ad to Revive
-        </button>
-
-        <button
-  onClick={async () => {
-    try {
-      await showStartAd();
-    } catch (err) {
-      console.error('Play Again ad failed:', err);
-    }
-  }}
-  className="w-full btn-gold rounded-2xl py-4 text-lg font-bold mb-3"
->
-  🎬 Watch Ad & Play Again
-</button>
-
-        <button onClick={() => { setGameState('menu'); loadStats(); }} className="w-full glass-card rounded-2xl py-3 text-sm font-semibold neon-border-gold">
-          ← Back to Menu
-        </button>
       </div>
-    );
-  }
+    </>
+  );
 
-  // ---- PLAYING ----
+  /* ── GAME OVER ── */
+  if (gameState === 'gameover') return (
+    <>
+      <style>{CSS}</style>
+      <div className="tc-root">
+        <div className="tc-bg">{[1,2,3,4].map(i=><div key={i} className="tc-beam"/>)}</div>
+        <div className="tc-scanline"/>
+        <div className="tc-content">
+          <div style={{ textAlign:'center', marginBottom:'8px', fontFamily:"'Bebas Neue',sans-serif", fontSize:'13px', letterSpacing:'5px', color:'rgba(255,255,255,0.3)' }}>
+            GAME OVER
+          </div>
+
+          <div className="tc-result-ring">
+            <div>
+              <div className="tc-result-floor">{floor}</div>
+              <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:'10px', letterSpacing:'2px', color:'rgba(255,255,255,0.3)', textAlign:'center' }}>FLOOR</div>
+            </div>
+          </div>
+
+          <div className="tc-result-label">POINTS EARNED</div>
+          <div className="tc-result-pts">
+            +{Math.min(score, MAX_SCORE_PER_GAME)} PTS
+            {score >= MAX_SCORE_PER_GAME && (
+              <span style={{ fontSize:11, color:'#ffbe00', marginLeft:8, letterSpacing:1 }}>MAX</span>
+            )}
+          </div>
+          {floor >= bestFloor && floor > 0 && (
+            <div className="tc-result-record">🎉 NEW RECORD!</div>
+          )}
+
+          <div style={{ textAlign:'center', marginBottom:'12px' }}>
+            <div className="tc-remaining" style={{
+              background: nextRemaining <= 0 ? 'rgba(239,68,68,0.08)' : 'rgba(255,190,0,0.06)',
+              border:`1px solid ${nextRemaining <= 0 ? 'rgba(239,68,68,0.2)' : 'rgba(255,190,0,0.15)'}`,
+              color: nextRemaining <= 0 ? '#ef4444' : 'rgba(255,255,255,0.4)',
+            }}>
+              {nextRemaining <= 0
+                ? '🔒 No runs remaining today'
+                : `${nextRemaining} run${nextRemaining !== 1 ? 's' : ''} remaining today`}
+            </div>
+          </div>
+
+          <div className="tc-divider"/>
+
+          <button className="tc-btn-primary" onClick={() => showStartAd()}
+            disabled={nextRemaining <= 0}
+            style={nextRemaining <= 0 ? { background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.3)', boxShadow:'none', cursor:'not-allowed' } : {}}>
+            {nextRemaining <= 0 ? '🔒  COME BACK TOMORROW' : '🎬  PLAY AGAIN'}
+          </button>
+          <button className="tc-btn-secondary" onClick={() => { setGameState('menu'); loadStats(); }}>
+            ← BACK TO MENU
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
+  /* ── PLAYING ── */
   return (
-    <div className="px-4 pb-28" onClick={handleTap}>
-      {/* HUD */}
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <div className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>Floor</div>
-          <div className="text-3xl font-black" style={{ color: 'hsl(var(--gold))' }}>{floor}</div>
-        </div>
-        <div className="text-right">
-          <div className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>Score</div>
-          <div className="text-xl font-bold">{score}</div>
-        </div>
-      </div>
+    <>
+      <style>{CSS}</style>
+      <div className="tc-root" onClick={handleTap}>
+        <div className="tc-bg">{[1,2,3,4].map(i=><div key={i} className="tc-beam"/>)}</div>
+        <div className="tc-scanline"/>
+        <div className={`tc-flash ${showResult||''} ${showResult?'show':''}`}/>
 
-      {/* Powerups */}
-      <div className="flex gap-2 mb-4">
-        {hasShield && (
-          <div className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: 'hsl(var(--cyan) / 0.2)', color: 'hsl(var(--cyan))', border: '1px solid hsl(var(--cyan) / 0.4)' }}>
-            🛡️ Shield Active
+        <div className="tc-content">
+          <div className="tc-hud">
+            <div>
+              <div className="tc-hud-label">FLOOR</div>
+              <div className="tc-hud-floor">{floor}</div>
+            </div>
+            <div style={{ textAlign:'right' }}>
+              <div className="tc-hud-label">SCORE</div>
+              <div className="tc-hud-score">{score}</div>
+              {scoreCapped
+                ? <div className="tc-hud-cap">🔒 MAX REACHED</div>
+                : <div style={{ fontSize:'10px', color:'rgba(255,255,255,0.2)', letterSpacing:'2px', marginTop:'4px' }}>
+                    CAP {MAX_SCORE_PER_GAME}
+                  </div>
+              }
+            </div>
           </div>
-        )}
-        {multiplier > 1 && (
-          <div className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: 'hsl(var(--gold) / 0.2)', color: 'hsl(var(--gold))', border: '1px solid hsl(var(--gold) / 0.4)' }}>
-            ⚡ 2x ({multiplierFloors} floors)
+
+          <div className="tc-speed-bar-wrap">
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:'10px', letterSpacing:'2px', color:'rgba(255,255,255,0.2)', marginBottom:'5px' }}>
+              <span>SPEED</span><span>{speed.toFixed(1)}x</span>
+            </div>
+            <div className="tc-speed-track">
+              <div className="tc-speed-fill" style={{ width:`${speedPct}%` }}/>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Reaction Bar */}
-      <div className="glass-card rounded-2xl p-6 mb-6 relative">
-        <div className="text-center text-sm mb-4 font-semibold" style={{ color: 'hsl(var(--muted-foreground))' }}>
-          TAP when the cursor is in the green zone!
+          {/* 2x badge when active */}
+          {multiplier > 1 && (
+            <div className="tc-powerups">
+              <div className="tc-badge" style={{ background:'rgba(255,190,0,0.12)', border:'1px solid rgba(255,190,0,0.3)', color:'#ffbe00' }}>
+                ⚡ 2X · {multiplierFloors} LEFT
+              </div>
+            </div>
+          )}
+
+          <div className="tc-reaction-wrap">
+            <div className="tc-tap-hint">TAP WHEN CURSOR HITS THE ZONE</div>
+            <div className="tc-bar-track">
+              <div className="tc-zone" style={{
+                left:`${targetZone - zoneSize/2}%`, width:`${zoneSize}%`,
+                background: showResult==='fail' ? 'rgba(239,68,68,0.3)' : 'rgba(74,222,128,0.2)',
+                border:`1px solid ${showResult==='fail' ? '#ef4444' : '#4ade80'}`,
+                boxShadow: showResult==='success' ? '0 0 12px rgba(74,222,128,0.5)' : showResult==='fail' ? '0 0 12px rgba(239,68,68,0.5)' : 'none',
+              }}/>
+              <div className="tc-cursor" style={{
+                left:`${cursorPos}%`,
+                background: showResult==='fail' ? '#ef4444' : '#ffbe00',
+                boxShadow:`0 0 12px ${showResult==='fail' ? 'rgba(239,68,68,0.8)' : 'rgba(255,190,0,0.8)'}`,
+              }}/>
+            </div>
+            <div className="tc-bar-meta">
+              <span>ZONE {zoneSize.toFixed(0)}%</span>
+              <span>TAP ANYWHERE</span>
+            </div>
+          </div>
+
+          {/* 2x multiplier button — only shown when not active */}
+          {multiplier === 1 && (
+            <button className="tc-multiplier-btn"
+              onClick={e => { e.stopPropagation(); showMultiplierAd(); }}>
+              <div className="tc-powerup-icon">⚡</div>
+              <div className="tc-powerup-name" style={{ color:'#ffbe00' }}>2X POINTS</div>
+              <div className="tc-powerup-hint">WATCH AD · 3 FLOORS</div>
+            </button>
+          )}
         </div>
-
-        <div className="relative h-12 rounded-full overflow-hidden mb-4" style={{ background: 'hsl(var(--muted))' }}>
-          {/* Target zone */}
-          <div
-            className="absolute top-0 h-full rounded-full"
-            style={{
-              left: `${targetZone - zoneSize / 2}%`,
-              width: `${zoneSize}%`,
-              background: 'linear-gradient(135deg, hsl(var(--green-reward) / 0.6), hsl(var(--green-reward) / 0.3))',
-              border: '2px solid hsl(var(--green-reward))',
-            }}
-          />
-
-          {/* Cursor */}
-          <div
-            className="absolute top-0 h-full w-1 transition-none"
-            style={{
-              left: `${cursorPos}%`,
-              background: showResult === 'success' ? 'hsl(var(--green-reward))' : showResult === 'fail' ? 'hsl(var(--destructive))' : 'hsl(var(--gold))',
-              boxShadow: `0 0 10px ${showResult === 'fail' ? 'hsl(var(--destructive))' : 'hsl(var(--gold))'}`,
-            }}
-          />
-        </div>
-
-        {/* Difficulty */}
-        <div className="flex justify-between text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
-          <span>Speed: {speed.toFixed(1)}x</span>
-          <span>Zone: {zoneSize.toFixed(0)}%</span>
-        </div>
       </div>
-
-      {/* Ad buttons */}
-      <div className="grid grid-cols-2 gap-3">
-        {!hasShield && (
-          <button
-            onClick={async (e) => { e.stopPropagation(); await showShieldAd(); }}
-            className="glass-card rounded-xl p-3 text-center neon-border-purple"
-          >
-            <div className="text-2xl mb-1">🛡️</div>
-            <div className="text-xs font-bold">Shield</div>
-            <div className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>Watch Ad</div>
-          </button>
-        )}
-        {multiplier === 1 && (
-          <button
-            onClick={async (e) => { e.stopPropagation(); await showMultiplierAd(); }}
-            className="glass-card rounded-xl p-3 text-center neon-border-gold"
-          >
-            <div className="text-2xl mb-1">⚡</div>
-            <div className="text-xs font-bold">2x Points</div>
-            <div className="text-[10px]" style={{ color: 'hsl(var(--muted-foreground))' }}>3 Floors</div>
-          </button>
-        )}
-      </div>
-    </div>
+    </>
   );
 }

@@ -26,6 +26,7 @@ const CSS = `
 
 .at-root { font-family: 'Rajdhani', sans-serif; color: #fff; }
 
+/* ── Stats row ── */
 .at-stats {
   display: grid; grid-template-columns: repeat(3,1fr);
   gap: 8px; margin-bottom: 14px;
@@ -43,6 +44,7 @@ const CSS = `
   letter-spacing: 2px; color: rgba(255,255,255,0.25); text-transform: uppercase;
 }
 
+/* ── Create button ── */
 .at-create-btn {
   width: 100%; padding: 14px; border-radius: 14px; border: none;
   font-family: 'Orbitron', monospace; font-size: 12px;
@@ -67,6 +69,7 @@ const CSS = `
 }
 .at-create-btn.open::after { display: none; }
 
+/* ── Form panel ── */
 .at-form {
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,190,0,0.2);
@@ -86,6 +89,7 @@ const CSS = `
   text-transform: uppercase; margin-bottom: 14px;
 }
 
+/* Form inputs */
 .at-label {
   font-family: 'Orbitron', monospace; font-size: 8px;
   letter-spacing: 2px; color: rgba(255,255,255,0.25);
@@ -111,6 +115,7 @@ const CSS = `
 
 .at-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
+/* Checkbox row */
 .at-checkbox-row {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px; border-radius: 12px;
@@ -131,6 +136,7 @@ const CSS = `
   font-size: 10px; color: rgba(255,255,255,0.2); letter-spacing: 0.5px;
 }
 
+/* Save btn */
 .at-save-btn {
   width: 100%; padding: 14px; border-radius: 12px; border: none;
   background: linear-gradient(135deg, #4ade80, #16a34a);
@@ -142,6 +148,7 @@ const CSS = `
 .at-save-btn:active { transform: scale(0.97); }
 .at-save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ── Filter strip ── */
 .at-filters {
   display: flex; gap: 6px; overflow-x: auto;
   padding-bottom: 4px; margin-bottom: 12px; scrollbar-width: none;
@@ -156,6 +163,7 @@ const CSS = `
   color: rgba(255,255,255,0.25);
 }
 
+/* ── Task card ── */
 .at-card {
   background: rgba(255,255,255,0.02);
   border-radius: 16px; margin-bottom: 8px;
@@ -172,11 +180,13 @@ const CSS = `
   position: relative; z-index: 1;
 }
 
+/* Icon */
 .at-task-icon {
   width: 44px; height: 44px; border-radius: 13px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; font-size: 20px;
 }
 
+/* Text */
 .at-task-body { flex: 1; min-width: 0; }
 .at-task-type-tag {
   font-family: 'Orbitron', monospace; font-size: 7px; font-weight: 600;
@@ -193,6 +203,7 @@ const CSS = `
   display: flex; gap: 8px; flex-wrap: wrap;
 }
 
+/* Buttons */
 .at-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
 .at-toggle-btn {
   padding: 6px 12px; border-radius: 10px; border: none;
@@ -211,6 +222,7 @@ const CSS = `
 }
 .at-delete-btn:active { transform: scale(0.93); }
 
+/* Empty */
 .at-empty {
   text-align: center; padding: 40px 0;
   font-family: 'Orbitron', monospace; font-size: 9px;
@@ -266,6 +278,7 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
       <style>{CSS}</style>
       <div className="at-root">
 
+        {/* Stats */}
         <div className="at-stats">
           {[
             { label: 'Total',    val: stats.total,    color: '#ffbe00' },
@@ -282,6 +295,7 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
           ))}
         </div>
 
+        {/* Create button */}
         <button
           className={`at-create-btn ${showForm ? 'open' : ''}`}
           onClick={() => setShowForm(v => !v)}
@@ -294,6 +308,7 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
           {showForm ? '✕  CANCEL' : '＋  CREATE NEW TASK'}
         </button>
 
+        {/* Create form */}
         {showForm && (
           <div className="at-form">
             <div className="at-form-title">New Task</div>
@@ -377,6 +392,7 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
               onChange={e => setForm(p => ({ ...p, link: e.target.value }))}
             />
 
+            {/* Repeatable toggle */}
             <div
               className="at-checkbox-row"
               onClick={() => setForm(p => ({ ...p, is_repeatable: !p.is_repeatable }))}
@@ -390,6 +406,7 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
               </div>
             </div>
 
+            {/* Preview */}
             {form.title && (
               <div style={{
                 background: selectedTypeConfig ? `${selectedTypeConfig.color}08` : 'rgba(255,255,255,0.02)',
@@ -421,6 +438,7 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
           </div>
         )}
 
+        {/* Filter strip */}
         <div className="at-filters">
           <button
             className="at-filter-btn"
@@ -452,10 +470,12 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
           })}
         </div>
 
+        {/* Empty */}
         {filtered.length === 0 && (
           <div className="at-empty">✦ No tasks found ✦</div>
         )}
 
+        {/* Task list */}
         {filtered.map((t, idx) => {
           const tc = TYPE_MAP[t.task_type] || { color: '#ffbe00', icon: '✨', label: t.task_type };
           const isConfirming = confirmDelete === t.id;
@@ -475,6 +495,7 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
                 style={{ background: `linear-gradient(90deg, transparent, ${tc.color}${t.is_active ? '35' : '15'}, transparent)` }}
               />
               <div className="at-card-body">
+                {/* Icon */}
                 <div
                   className="at-task-icon"
                   style={{ background: `${tc.color}10`, border: `1px solid ${tc.color}25` }}
@@ -482,12 +503,13 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
                   {t.icon || tc.icon}
                 </div>
 
+                {/* Body */}
                 <div className="at-task-body">
                   <div
                     className="at-task-type-tag"
                     style={{ background: `${tc.color}10`, border: `1px solid ${tc.color}20`, color: tc.color }}
                   >
-                    {t.task_type}
+                    {tc.value || t.task_type}
                   </div>
                   <div className="at-task-title">{t.title}</div>
                   <div className="at-task-meta">
@@ -498,6 +520,7 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
                   </div>
                 </div>
 
+                {/* Actions */}
                 <div className="at-card-actions">
                   <button
                     className={`at-toggle-btn ${t.is_active ? 'at-toggle-on' : 'at-toggle-off'}`}

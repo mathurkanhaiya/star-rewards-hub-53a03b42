@@ -991,6 +991,69 @@ app.put('/api/admin/settings', async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: String(err) }); }
 });
 
+app.get('/api/admin/user-activity/:userId', async (req, res) => {
+  if (!await requireAdmin(req, res)) return;
+  try {
+    const { userId } = req.params;
+
+    const [txRows, adRows, dropRows, balRow] = await Promise.all([
+      db.select({ id: schema.transactions.id, type: schema.transactions.type, points: schema.transactions.points, description: schema.transactions.description, createdAt: schema.transactions.createdAt })
+        .from(schema.transactions).where(eq(schema.transactions.userId, userId))
+        .orderBy(desc(schema.transactions.createdAt)).limit(150),
+      db.select({ id: schema.adLogs.id }).from(schema.adLogs).where(eq(schema.adLogs.userId, userId)),
+      db.select({ claimDate: schema.dailyClaims.claimDate })
+        .from(schema.dailyClaims).where(eq(schema.dailyClaims.userId, userId))
+        .orderBy(desc(schema.dailyClaims.claimDate)).limit(7),
+      db.select({ points: schema.balances.points }).from(schema.balances).where(eq(schema.balances.userId, userId)).limit(1),
+    ]);
+
+    const txs = txRows.map(t => ({ id: t.id, type: t.type, points: t.points, description: t.description, created_at: t.createdAt?.toISOString() || '' }));
+
+    const breakdown = { tap:0, farm:0, ads:0, games:0, daily:0, drop:0, referral:0, spin:0, tasks:0, promo:0, admin:0, other:0 };
+    let totalEarned = 0;
+    txs.forEach(t => {
+      const pts = t.points || 0;
+      if (pts <= 0) return;
+      totalEarned += pts;
+      const ty = t.type;
+      if (ty === 'tap_earn') breakdown.tap += pts;
+      else if (ty === 'farm_claim') breakdown.farm += pts;
+      else if (['adsgram_reward','adsgram_task','ad_reward','ad_watch'].includes(ty)) breakdown.ads += pts;
+      else if (['tower_climb','lucky_box','dice_roll','card_flip','number_guess','game'].includes(ty)) breakdown.games += pts;
+      else if (['daily_reward','daily'].includes(ty)) breakdown.daily += pts;
+      else if (ty === 'daily_drop') breakdown.drop += pts;
+      else if (['referral','referral_bonus'].includes(ty)) breakdown.referral += pts;
+      else if (['spin','spin_reward'].includes(ty)) breakdown.spin += pts;
+      else if (ty === 'task_complete') breakdown.tasks += pts;
+      else if (ty === 'promo') breakdown.promo += pts;
+      else if (['admin_credit','admin_debit','admin_adjust'].includes(ty)) breakdown.admin += pts;
+      else breakdown.other += pts;
+    });
+
+    const tapCount  = txs.filter(t => t.type === 'tap_earn').length;
+    const farmCount = txs.filter(t => t.type === 'farm_claim').length;
+
+    let dropStreak = 0;
+    if (dropRows.length > 0) {
+      const now = new Date(); now.setUTCHours(0,0,0,0);
+      for (let i = 0; i < dropRows.length; i++) {
+        const d = new Date(dropRows[i].claimDate as string);
+        const exp = new Date(now); exp.setUTCDate(now.getUTCDate() - i);
+        if (d.toISOString().split('T')[0] === exp.toISOString().split('T')[0]) dropStreak++;
+        else break;
+      }
+    }
+
+    res.json({
+      breakdown, transactions: txs, totalEarned,
+      currentBalance: balRow[0]?.points || 0,
+      lastSeen: txs[0]?.created_at || null,
+      adCount: adRows.length,
+      tapCount, farmCount, dropStreak,
+    });
+  } catch (err) { res.status(500).json({ error: String(err) }); }
+});
+
 app.post('/api/admin/ban', async (req, res) => {
   if (!await requireAdmin(req, res)) return;
   try {

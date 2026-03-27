@@ -137,6 +137,12 @@ export async function adminGetStats(adminTelegramId: number) {
   catch { return {}; }
 }
 
+export async function adminGetUserActivity(userId: string, adminTelegramId: number) {
+  try {
+    return await apiFetch(`/admin/user-activity/${userId}`, { headers: adminHeaders(adminTelegramId) });
+  } catch { return null; }
+}
+
 export async function adminGetUsers(adminTelegramId: number) {
   try { return (await fetch(`${API}/admin/users`, { headers: adminHeaders(adminTelegramId) }).then(r => r.json())) || []; }
   catch { return []; }

@@ -8,6 +8,7 @@ interface Props {
   saving: string | null;
 }
 
+/* ── Group config ── */
 const GROUPS: {
   label: string;
   icon: string;
@@ -123,6 +124,7 @@ const CSS = `
 
 .as-root { font-family: 'Rajdhani', sans-serif; color: #fff; }
 
+/* Notice */
 .as-notice {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 14px; border-radius: 12px; margin-bottom: 16px;
@@ -131,6 +133,7 @@ const CSS = `
   letter-spacing: 2px; color: rgba(255,190,0,0.6); text-transform: uppercase;
 }
 
+/* Search */
 .as-search-wrap { position: relative; margin-bottom: 14px; }
 .as-search {
   width: 100%; padding: 11px 16px 11px 40px;
@@ -143,6 +146,7 @@ const CSS = `
 .as-search::placeholder { color: rgba(255,255,255,0.2); }
 .as-search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 15px; pointer-events: none; }
 
+/* Group card */
 .as-group {
   background: rgba(255,255,255,0.02);
   border-radius: 18px; margin-bottom: 8px; overflow: hidden;
@@ -179,14 +183,18 @@ const CSS = `
 }
 .as-group-arrow.open { transform: rotate(180deg); }
 
+/* Settings list inside group */
 .as-settings-list { padding: 0 12px 12px; }
 
+/* Setting row */
 .as-setting-row {
   border-radius: 14px; padding: 12px 14px; margin-bottom: 6px;
   background: rgba(0,0,0,0.2); position: relative;
   transition: border-color 0.2s;
   animation: asFadeIn 0.2s ease both;
 }
+.as-setting-row.changed { }
+.as-setting-row.danger  { }
 
 .as-setting-header {
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -212,6 +220,7 @@ const CSS = `
   background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #ef4444;
 }
 
+/* Input row */
 .as-input-row { display: flex; gap: 8px; align-items: center; }
 .as-input {
   flex: 1; padding: 10px 12px; border-radius: 11px;
@@ -222,6 +231,7 @@ const CSS = `
 .as-input:focus { border-color: rgba(255,190,0,0.4); }
 .as-input.changed { border-color: rgba(255,190,0,0.3); }
 
+/* Toggle switch */
 .as-toggle-wrap {
   display: flex; align-items: center; justify-content: space-between;
 }
@@ -235,6 +245,7 @@ const CSS = `
   transition: left 0.2s; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 
+/* Save button */
 .as-save-btn {
   padding: 10px 16px; border-radius: 11px; border: none;
   font-family: 'Orbitron', monospace; font-size: 9px;
@@ -260,6 +271,7 @@ const CSS = `
 }
 .as-save-btn.unchanged::after { display: none; }
 
+/* Changed hint */
 .as-changed-hint {
   margin-top: 6px; font-size: 10px; letter-spacing: 1px;
   color: rgba(255,190,0,0.5); display: flex; align-items: center; gap: 4px;
@@ -270,6 +282,7 @@ const CSS = `
   padding: 0 5px; color: rgba(255,190,0,0.7); font-size: 10px;
 }
 
+/* Save all banner */
 .as-save-all-btn {
   width: 100%; padding: 14px; border-radius: 14px; border: none;
   background: linear-gradient(135deg, #ef4444, #dc2626);
@@ -287,12 +300,14 @@ const CSS = `
 }
 .as-save-all-btn:active { transform: scale(0.97); }
 
+/* Empty search */
 .as-empty {
   text-align: center; padding: 40px 0;
   font-family: 'Orbitron', monospace; font-size: 9px;
   letter-spacing: 3px; color: rgba(255,255,255,0.1); text-transform: uppercase;
 }
 
+/* Changes count badge */
 .as-changes-badge {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 4px 10px; border-radius: 20px; margin-bottom: 12px;
@@ -329,6 +344,7 @@ export default function AdminSettingsTab({
     changedKeys.forEach(k => onSave(k));
   }
 
+  /* Filter by search */
   const searchLower = search.trim().toLowerCase();
   function keyMatchesSearch(k: string) {
     if (!searchLower) return true;
@@ -360,6 +376,7 @@ export default function AdminSettingsTab({
           border: `1px solid ${changed ? 'rgba(255,190,0,0.3)' : meta.danger ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)'}`,
         }}
       >
+        {/* Header */}
         <div className="as-setting-header">
           <div>
             <div className="as-setting-label" style={{ color: changed ? '#ffbe00' : 'rgba(255,255,255,0.8)' }}>
@@ -373,6 +390,7 @@ export default function AdminSettingsTab({
           </div>
         </div>
 
+        {/* Toggle */}
         {meta.type === 'toggle' ? (
           <div className="as-toggle-wrap">
             <div style={{ fontSize: 13, color: isOn(val) ? groupColor : 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
@@ -402,6 +420,7 @@ export default function AdminSettingsTab({
             </div>
           </div>
         ) : (
+          /* Text / Number input */
           <div className="as-input-row">
             <input
               className={`as-input ${changed ? 'changed' : ''}`}
@@ -419,6 +438,7 @@ export default function AdminSettingsTab({
           </div>
         )}
 
+        {/* Changed hint */}
         {changed && (
           <div className="as-changed-hint">
             ⚠ Current DB value: <code>{origVal || '(empty)'}</code>
@@ -433,10 +453,12 @@ export default function AdminSettingsTab({
       <style>{CSS}</style>
       <div className="as-root">
 
+        {/* Notice */}
         <div className="as-notice">
           ⚡ Changes save directly to database and persist across all sessions
         </div>
 
+        {/* Unsaved changes badge + Save All */}
         {changedKeys.length > 0 && (
           <>
             <div className="as-changes-badge">
@@ -448,6 +470,7 @@ export default function AdminSettingsTab({
           </>
         )}
 
+        {/* Search */}
         <div className="as-search-wrap">
           <span className="as-search-icon">🔍</span>
           <input
@@ -458,6 +481,7 @@ export default function AdminSettingsTab({
           />
         </div>
 
+        {/* Groups */}
         {GROUPS.map(group => {
           const visibleKeys = group.keys.filter(k => k in editSettings && keyMatchesSearch(k));
           if (visibleKeys.length === 0) return null;
@@ -496,6 +520,7 @@ export default function AdminSettingsTab({
           );
         })}
 
+        {/* Ungrouped */}
         {ungroupedKeys.filter(keyMatchesSearch).length > 0 && (
           <div className="as-group" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="as-group-header" onClick={() => toggleGroup('__other')}>
@@ -541,6 +566,7 @@ export default function AdminSettingsTab({
           </div>
         )}
 
+        {/* No results */}
         {searchLower && GROUPS.every(g => g.keys.filter(k => k in editSettings && keyMatchesSearch(k)).length === 0) && (
           <div className="as-empty">✦ No settings match "{search}" ✦</div>
         )}

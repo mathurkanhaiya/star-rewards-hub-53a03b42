@@ -18,15 +18,17 @@ serve(async (req) => {
     const { userId, adType, rewardGiven } = await req.json();
     if (!userId || !adType) throw new Error('Missing fields');
 
-    const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+    const startOfDay = new Date();
+    startOfDay.setUTCHours(0, 0, 0, 0);
     const { count } = await supabase
       .from('ad_logs')
       .select('id', { count: 'exact' })
       .eq('user_id', userId)
-      .gte('created_at', oneHourAgo);
+      .eq('ad_type', 'ad_watch')
+      .gte('created_at', startOfDay.toISOString());
 
-    if ((count || 0) >= 10) {
-      return new Response(JSON.stringify({ success: false, message: 'Ad rate limit reached' }), {
+    if ((count || 0) >= 50) {
+      return new Response(JSON.stringify({ success: false, message: 'Daily ad limit reached (50/day)' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
@@ -67,7 +69,6 @@ serve(async (req) => {
 
     if (activeContests && activeContests.length > 0) {
       for (const contest of activeContests) {
-        // Upsert contest entry - increment score
         const { data: existing } = await supabase
           .from('contest_entries')
           .select('id, score')

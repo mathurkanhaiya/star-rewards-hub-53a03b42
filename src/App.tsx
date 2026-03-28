@@ -128,7 +128,7 @@ const CSS = `
 .ld-dot:nth-child(2) { animation-delay: 0.2s; }
 .ld-dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* BAN / BLOCKED */
+/* BAN */
 .bn-root {
   position: fixed; inset: 0;
   background: #06080f;
@@ -206,10 +206,8 @@ const CSS = `
 
 function AppContent() {
   const { isLoading, user, isAdmin, telegramUser } = useApp();
-
   const [currentPage, setCurrentPage] = useState<Page>("home");
 
-  // Loading Screen
   if (isLoading) {
     return (
       <>
@@ -241,7 +239,108 @@ function AppContent() {
     );
   }
 
-  // Banned User Screen
+  // Not inside Telegram — show a gate screen, expose nothing
+  if (!telegramUser) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(160deg, #05070f 0%, #0a0e1a 50%, #060a14 100%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '32px 24px',
+        fontFamily: "'Space Grotesk', sans-serif",
+      }}>
+        {/* Ambient glow */}
+        <div style={{
+          position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)',
+          width: 320, height: 320, borderRadius: '50%',
+          background: 'radial-gradient(circle, hsl(262 80% 40% / 0.15) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* Logo */}
+        <div style={{
+          width: 88, height: 88, borderRadius: 24,
+          background: 'linear-gradient(135deg, hsl(262 80% 50% / 0.2), hsl(220 80% 50% / 0.2))',
+          border: '1px solid hsl(262 80% 50% / 0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 24,
+          boxShadow: '0 0 40px hsl(262 80% 50% / 0.2)',
+        }}>
+          <img
+            src="https://i.ibb.co/hJxry1hZ/53-AB4888-9018-455-D-B962-232-FAA620823.png"
+            alt="ADS Rewards"
+            style={{ width: 60, height: 60, objectFit: 'contain' }}
+          />
+        </div>
+
+        {/* Title */}
+        <div style={{
+          fontSize: 22, fontWeight: 700, letterSpacing: 3,
+          color: '#fff', marginBottom: 6,
+          fontFamily: "'Orbitron', monospace", textTransform: 'uppercase',
+        }}>
+          ADS REWARDS
+        </div>
+        <div style={{ fontSize: 12, color: 'hsl(220 15% 50%)', letterSpacing: 2, marginBottom: 40 }}>
+          WATCH · EARN · WIN
+        </div>
+
+        {/* Message card */}
+        <div style={{
+          width: '100%', maxWidth: 340,
+          background: 'hsl(220 25% 10% / 0.8)',
+          border: '1px solid hsl(220 30% 20% / 0.6)',
+          borderRadius: 20, padding: '28px 24px',
+          backdropFilter: 'blur(20px)',
+          textAlign: 'center',
+        }}>
+          {/* Telegram icon */}
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%', margin: '0 auto 16px',
+            background: 'linear-gradient(135deg, #0088cc, #00aaff)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 24px rgba(0,136,204,0.4)',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/>
+            </svg>
+          </div>
+
+          <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 10 }}>
+            Telegram Only
+          </div>
+          <div style={{ fontSize: 13, color: 'hsl(220 15% 55%)', lineHeight: 1.6, marginBottom: 24 }}>
+            ADS Rewards is a Telegram Mini App.<br/>
+            Open it inside Telegram to start earning.
+          </div>
+
+          <a
+            href="https://t.me/Adsrewartsbot/app"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'block', width: '100%', padding: '13px 0',
+              background: 'linear-gradient(135deg, #0088cc, #00aaff)',
+              borderRadius: 12, color: '#fff',
+              fontSize: 14, fontWeight: 700, textDecoration: 'none',
+              letterSpacing: 0.5,
+              boxShadow: '0 4px 20px rgba(0,136,204,0.35)',
+            }}
+          >
+            Open in Telegram
+          </a>
+        </div>
+
+        <div style={{ marginTop: 24, fontSize: 11, color: 'hsl(220 15% 30%)', textAlign: 'center' }}>
+          @adsrewartsbot
+        </div>
+      </div>
+    );
+  }
+
   if (user?.is_banned) {
     return (
       <>

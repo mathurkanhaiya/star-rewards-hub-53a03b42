@@ -3,6 +3,36 @@ import { AppUser, UserBalance, Task, Withdrawal, LeaderboardEntry } from '@/type
 
 const EDGE_FN = `https://utfkqzmrcdfbnjdkjais.supabase.co/functions/v1`;
 
+// Add this function (recommended to add at the top after imports)
+export async function validateInitDataOnBackend(rawInitData: string, fingerprint: string) {
+  try {
+    const response = await fetch(`${EDGE_FN}/validate-initdata`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY 
+      },
+      body: JSON.stringify({ 
+        initData: rawInitData, 
+        fingerprint 
+      }),
+    });
+
+    if (!response.ok) {
+      return { success: false, message: 'Validation failed' };
+    }
+
+    return await response.json();
+  } catch (err) {
+    console.error('validateInitDataOnBackend error:', err);
+    return { 
+      success: false, 
+      message: 'Network error during validation',
+      reason: 'network_error'
+    };
+  }
+}
+
 export async function initUser(telegramUser: {
   id: number;
   first_name: string;

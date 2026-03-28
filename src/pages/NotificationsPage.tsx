@@ -24,7 +24,6 @@ const DEFAULT_TYPE = { icon: '🔔', color: '#94a3b8', glow: 'rgba(148,163,184,0
 function timeAgo(date: string) {
   const diff = Date.now() - new Date(date).getTime();
   const sec = Math.floor(diff / 1000);
-
   if (sec < 60) return 'Just now';
   if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
   if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
@@ -72,7 +71,6 @@ const CSS = `
   text-shadow: 0 0 16px rgba(34,211,238,0.4); 
 }
 
-/* Unread badge */
 .np-unread-badge {
   margin-top: 4px;
   display: inline-flex;
@@ -275,10 +273,28 @@ const CSS = `
 export default function NotificationsPage() {
   const { notifications, markRead } = useApp();
 
-  // Filter out announcement/broadcast messages
-  const filteredNotifications = notifications.filter(
-    (n: any) => !['announcement', 'broadcast', 'global'].includes(n.type?.toLowerCase())
-  );
+  // Hide Announcement, Broadcast, and any promotional/global messages
+  const HIDDEN_TYPES = [
+    'announcement', 
+    'broadcast', 
+    'global', 
+    'promo', 
+    'promotion'
+  ];
+
+  const filteredNotifications = notifications.filter((n: any) => {
+    const type = (n.type || '').toLowerCase();
+    const title = (n.title || '').toLowerCase();
+    const message = (n.message || '').toLowerCase();
+
+    // Hide by type
+    if (HIDDEN_TYPES.includes(type)) return false;
+
+    // Extra safety: hide if title or message contains "announcement"
+    if (title.includes('announcement') || message.includes('announcement')) return false;
+
+    return true;
+  });
 
   const unread = filteredNotifications.filter((n: any) => !n.is_read);
   const read   = filteredNotifications.filter((n: any) => n.is_read);
@@ -306,7 +322,6 @@ export default function NotificationsPage() {
         }}
       >
         <div className="np-card-inner">
-          {/* Icon tile */}
           <div
             className="np-icon-tile"
             style={{
@@ -320,9 +335,7 @@ export default function NotificationsPage() {
 
           <div className="np-card-body">
             <div className="np-card-top">
-              <div className={`np-card-title ${n.is_read ? 'read' : ''}`}>
-                {n.title}
-              </div>
+              <div className={`np-card-title ${n.is_read ? 'read' : ''}`}>{n.title}</div>
               <div
                 className="np-type-tag"
                 style={{
@@ -335,17 +348,12 @@ export default function NotificationsPage() {
               </div>
             </div>
 
-            <div className={`np-card-msg ${n.is_read ? '' : 'unread'}`}>
-              {n.message}
-            </div>
+            <div className={`np-card-msg ${n.is_read ? '' : 'unread'}`}>{n.message}</div>
 
             <div className="np-card-footer">
               <div className="np-time">{timeAgo(n.created_at)}</div>
               {!n.is_read ? (
-                <div 
-                  className="np-unread-dot" 
-                  style={{ background: tc.color, boxShadow: `0 0 6px ${tc.glow}` }} 
-                />
+                <div className="np-unread-dot" style={{ background: tc.color, boxShadow: `0 0 6px ${tc.glow}` }} />
               ) : (
                 <div className="np-read-check">✓</div>
               )}
@@ -360,20 +368,16 @@ export default function NotificationsPage() {
     <>
       <style>{CSS}</style>
       <div className="np-root">
-        {/* Header */}
         <div className="np-header">
           <div>
             <div className="np-eyebrow">Activity · Updates</div>
             <div className="np-title">NOTIFI<span>CATIONS</span></div>
           </div>
           {unread.length > 0 && (
-            <div className="np-unread-badge">
-              ● {unread.length} NEW
-            </div>
+            <div className="np-unread-badge">● {unread.length} NEW</div>
           )}
         </div>
 
-        {/* Empty State */}
         {filteredNotifications.length === 0 && (
           <div className="np-empty">
             <div className="np-empty-icon">🔔</div>
@@ -382,7 +386,6 @@ export default function NotificationsPage() {
           </div>
         )}
 
-        {/* Unread Section */}
         {unread.length > 0 && (
           <>
             <div className="np-divider">✦ Unread · {unread.length}</div>
@@ -390,7 +393,6 @@ export default function NotificationsPage() {
           </>
         )}
 
-        {/* Read Section */}
         {read.length > 0 && (
           <>
             <div className="np-divider">Earlier</div>
@@ -402,7 +404,6 @@ export default function NotificationsPage() {
   );
 }
 
-/* Helper: hex to rgb */
 function hexToRgb(hex: string): string {
   const h = hex.replace('#', '');
   const r = parseInt(h.slice(0, 2), 16);

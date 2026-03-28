@@ -21,7 +21,7 @@ import DiceRollPage from "@/pages/DiceRollPage";
 import CardFlipPage from "@/pages/CardFlipPage";
 import NumberGuessPage from "@/pages/NumberGuessPage";
 
-// Security: Backend validation function
+// Security Import
 import { validateInitDataOnBackend } from "@/lib/api";
 
 const queryClient = new QueryClient();
@@ -31,7 +31,7 @@ type Page =
   | "wallet" | "notifications" | "admin" | "games"
   | "tower" | "dice" | "cardflip" | "numberguess" | "luckybox";
 
-// Device Fingerprint (helps detect alt accounts & shared links)
+// Device Fingerprint - Helps detect alt accounts & shared links
 function getDeviceFingerprint(): string {
   const data = [
     navigator.userAgent,
@@ -233,7 +233,7 @@ function AppContent() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAltBlocked, setIsAltBlocked] = useState(false);
 
-  // Security Check - Runs once when app loads
+  // Security Check
   useEffect(() => {
     const runSecurityCheck = async () => {
       const tg = (window as any).Telegram?.WebApp;
@@ -254,7 +254,6 @@ function AppContent() {
 
       try {
         const fingerprint = getDeviceFingerprint();
-
         const result = await validateInitDataOnBackend(rawInitData, fingerprint);
 
         if (result.success) {
@@ -268,7 +267,7 @@ function AppContent() {
         }
       } catch (err) {
         console.error("Auth error:", err);
-        setAuthError("Authentication failed. Please reopen the app from Telegram.");
+        setAuthError("Authentication failed. Please reopen from Telegram.");
       } finally {
         setAuthChecked(true);
       }
@@ -309,7 +308,7 @@ function AppContent() {
     );
   }
 
-  // Alt Account / Multiple Device Blocked Screen
+  // Alt Account Blocked
   if (isAltBlocked) {
     return (
       <>
@@ -333,7 +332,7 @@ function AppContent() {
           <div className="bn-line" />
           <div className="bn-msg">
             Your account was accessed from different devices.<br />
-            Access has been temporarily blocked to protect your rewards.
+            Access has been temporarily blocked.
           </div>
           <div className="bn-support">
             Contact support with your Telegram username
@@ -343,7 +342,7 @@ function AppContent() {
     );
   }
 
-  // Not opened inside Telegram or invalid session
+  // Not in Telegram or invalid session
   if (!telegramUser || authError) {
     return (
       <div style={{
@@ -440,7 +439,7 @@ function AppContent() {
     );
   }
 
-  // Banned User Screen
+  // Banned User
   if (user?.is_banned) {
     return (
       <>

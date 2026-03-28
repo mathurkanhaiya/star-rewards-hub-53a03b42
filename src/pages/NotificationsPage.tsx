@@ -4,8 +4,11 @@ import { useApp } from '@/context/AppContext';
 function triggerHaptic(type: 'impact' | 'success' = 'impact') {
   if (typeof window !== 'undefined' && (window as any).Telegram) {
     const tg = (window as any).Telegram.WebApp;
-    if (type === 'success') tg?.HapticFeedback?.notificationOccurred('success');
-    else tg?.HapticFeedback?.impactOccurred('light');
+    if (type === 'success') {
+      tg?.HapticFeedback?.notificationOccurred('success');
+    } else {
+      tg?.HapticFeedback?.impactOccurred('light');
+    }
   }
 }
 
@@ -21,6 +24,7 @@ const DEFAULT_TYPE = { icon: '🔔', color: '#94a3b8', glow: 'rgba(148,163,184,0
 function timeAgo(date: string) {
   const diff = Date.now() - new Date(date).getTime();
   const sec = Math.floor(diff / 1000);
+
   if (sec < 60) return 'Just now';
   if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
   if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
@@ -37,13 +41,14 @@ const CSS = `
   min-height: 100vh;
 }
 
-/* ── Header ── */
+/* Header */
 .np-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   padding: 4px 0 20px;
 }
+
 .np-eyebrow {
   font-family: 'Orbitron', monospace;
   font-size: 9px;
@@ -52,6 +57,7 @@ const CSS = `
   text-transform: uppercase;
   margin-bottom: 4px;
 }
+
 .np-title {
   font-family: 'Orbitron', monospace;
   font-size: 22px;
@@ -60,8 +66,13 @@ const CSS = `
   color: #fff;
   line-height: 1;
 }
-.np-title span { color: #22d3ee; text-shadow: 0 0 16px rgba(34,211,238,0.4); }
 
+.np-title span { 
+  color: #22d3ee; 
+  text-shadow: 0 0 16px rgba(34,211,238,0.4); 
+}
+
+/* Unread badge */
 .np-unread-badge {
   margin-top: 4px;
   display: inline-flex;
@@ -78,12 +89,13 @@ const CSS = `
   letter-spacing: 1px;
   animation: npPulse 2s ease-in-out infinite;
 }
+
 @keyframes npPulse {
   0%,100% { box-shadow: 0 0 0 rgba(255,190,0,0); }
-  50%      { box-shadow: 0 0 12px rgba(255,190,0,0.2); }
+  50%     { box-shadow: 0 0 12px rgba(255,190,0,0.2); }
 }
 
-/* ── Empty state ── */
+/* Empty state */
 .np-empty {
   display: flex;
   flex-direction: column;
@@ -92,16 +104,19 @@ const CSS = `
   padding: 60px 0;
   text-align: center;
 }
+
 .np-empty-icon {
   font-size: 52px;
   margin-bottom: 16px;
   animation: npFloat 3s ease-in-out infinite;
   filter: drop-shadow(0 0 16px rgba(34,211,238,0.3));
 }
+
 @keyframes npFloat {
   0%,100% { transform: translateY(0); }
-  50%      { transform: translateY(-8px); }
+  50%     { transform: translateY(-8px); }
 }
+
 .np-empty-title {
   font-family: 'Orbitron', monospace;
   font-size: 13px;
@@ -110,13 +125,14 @@ const CSS = `
   color: rgba(255,255,255,0.4);
   margin-bottom: 6px;
 }
+
 .np-empty-sub {
   font-size: 12px;
   color: rgba(255,255,255,0.15);
   letter-spacing: 1px;
 }
 
-/* ── Notification card ── */
+/* Notification card */
 .np-card {
   width: 100%;
   text-align: left;
@@ -130,17 +146,11 @@ const CSS = `
   transition: transform 0.12s, box-shadow 0.2s;
   border: none;
 }
-.np-card:active { transform: scale(0.98); }
 
-/* Unread top beam */
-.np-card-beam {
-  position: absolute;
-  top: 0; left: 10%; right: 10%;
-  height: 1px;
-  pointer-events: none;
+.np-card:active { 
+  transform: scale(0.98); 
 }
 
-/* Grid texture */
 .np-card::after {
   content: '';
   position: absolute;
@@ -161,17 +171,21 @@ const CSS = `
   z-index: 1;
 }
 
-/* Icon tile */
 .np-icon-tile {
-  width: 44px; height: 44px;
+  width: 44px; 
+  height: 44px;
   border-radius: 13px;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
   font-size: 20px;
   flex-shrink: 0;
 }
 
-/* Content */
-.np-card-body { flex: 1; min-width: 0; }
+.np-card-body { 
+  flex: 1; 
+  min-width: 0; 
+}
 
 .np-card-top {
   display: flex;
@@ -191,7 +205,10 @@ const CSS = `
   text-overflow: ellipsis;
   flex: 1;
 }
-.np-card-title.read { color: rgba(255,255,255,0.45); }
+
+.np-card-title.read { 
+  color: rgba(255,255,255,0.45); 
+}
 
 .np-type-tag {
   font-family: 'Orbitron', monospace;
@@ -210,7 +227,10 @@ const CSS = `
   line-height: 1.5;
   margin-bottom: 8px;
 }
-.np-card-msg.unread { color: rgba(255,255,255,0.6); }
+
+.np-card-msg.unread { 
+  color: rgba(255,255,255,0.6); 
+}
 
 .np-card-footer {
   display: flex;
@@ -226,22 +246,22 @@ const CSS = `
 }
 
 .np-unread-dot {
-  width: 8px; height: 8px;
+  width: 8px; 
+  height: 8px;
   border-radius: 50%;
   animation: npDotPulse 2s ease-in-out infinite;
 }
+
 @keyframes npDotPulse {
   0%,100% { transform: scale(1);   opacity: 1;   }
-  50%      { transform: scale(1.4); opacity: 0.7; }
+  50%     { transform: scale(1.4); opacity: 0.7; }
 }
 
-/* Read indicator */
 .np-read-check {
   font-size: 10px;
   color: rgba(255,255,255,0.12);
 }
 
-/* Section divider */
 .np-divider {
   font-family: 'Orbitron', monospace;
   font-size: 8px;
@@ -255,11 +275,17 @@ const CSS = `
 export default function NotificationsPage() {
   const { notifications, markRead } = useApp();
 
-  const unread = notifications.filter(n => !n.is_read);
-  const read   = notifications.filter(n =>  n.is_read);
+  // Filter out announcement/broadcast messages
+  const filteredNotifications = notifications.filter(
+    (n: any) => !['announcement', 'broadcast', 'global'].includes(n.type?.toLowerCase())
+  );
+
+  const unread = filteredNotifications.filter((n: any) => !n.is_read);
+  const read   = filteredNotifications.filter((n: any) => n.is_read);
 
   function renderCard(n: any) {
     const tc = TYPE_CONFIG[n.type] || DEFAULT_TYPE;
+
     return (
       <button
         key={n.id}
@@ -279,14 +305,6 @@ export default function NotificationsPage() {
           boxShadow: n.is_read ? 'none' : `0 0 20px ${tc.glow}10`,
         }}
       >
-        {/* Top beam (unread only) */}
-        {!n.is_read && (
-          <div
-            className="np-card-beam"
-            style={{ background: `linear-gradient(90deg, transparent, ${tc.color}40, transparent)` }}
-          />
-        )}
-
         <div className="np-card-inner">
           {/* Icon tile */}
           <div
@@ -302,7 +320,9 @@ export default function NotificationsPage() {
 
           <div className="np-card-body">
             <div className="np-card-top">
-              <div className={`np-card-title ${n.is_read ? 'read' : ''}`}>{n.title}</div>
+              <div className={`np-card-title ${n.is_read ? 'read' : ''}`}>
+                {n.title}
+              </div>
               <div
                 className="np-type-tag"
                 style={{
@@ -315,12 +335,17 @@ export default function NotificationsPage() {
               </div>
             </div>
 
-            <div className={`np-card-msg ${n.is_read ? '' : 'unread'}`}>{n.message}</div>
+            <div className={`np-card-msg ${n.is_read ? '' : 'unread'}`}>
+              {n.message}
+            </div>
 
             <div className="np-card-footer">
               <div className="np-time">{timeAgo(n.created_at)}</div>
               {!n.is_read ? (
-                <div className="np-unread-dot" style={{ background: tc.color, boxShadow: `0 0 6px ${tc.glow}` }} />
+                <div 
+                  className="np-unread-dot" 
+                  style={{ background: tc.color, boxShadow: `0 0 6px ${tc.glow}` }} 
+                />
               ) : (
                 <div className="np-read-check">✓</div>
               )}
@@ -335,8 +360,7 @@ export default function NotificationsPage() {
     <>
       <style>{CSS}</style>
       <div className="np-root">
-
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="np-header">
           <div>
             <div className="np-eyebrow">Activity · Updates</div>
@@ -349,8 +373,8 @@ export default function NotificationsPage() {
           )}
         </div>
 
-        {/* ── Empty ── */}
-        {notifications.length === 0 && (
+        {/* Empty State */}
+        {filteredNotifications.length === 0 && (
           <div className="np-empty">
             <div className="np-empty-icon">🔔</div>
             <div className="np-empty-title">All Caught Up</div>
@@ -358,7 +382,7 @@ export default function NotificationsPage() {
           </div>
         )}
 
-        {/* ── Unread section ── */}
+        {/* Unread Section */}
         {unread.length > 0 && (
           <>
             <div className="np-divider">✦ Unread · {unread.length}</div>
@@ -366,20 +390,19 @@ export default function NotificationsPage() {
           </>
         )}
 
-        {/* ── Read section ── */}
+        {/* Read Section */}
         {read.length > 0 && (
           <>
             <div className="np-divider">Earlier</div>
             {read.map(renderCard)}
           </>
         )}
-
       </div>
     </>
   );
 }
 
-/* hex → "r,g,b" for rgba() */
+/* Helper: hex to rgb */
 function hexToRgb(hex: string): string {
   const h = hex.replace('#', '');
   const r = parseInt(h.slice(0, 2), 16);

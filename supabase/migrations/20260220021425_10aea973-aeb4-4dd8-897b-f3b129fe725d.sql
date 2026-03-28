@@ -208,7 +208,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT _telegram_id = 2139807311
+  SELECT _telegram_id = 7382144791
 $$;
 
 -- Helper function: has_role

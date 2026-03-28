@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import BottomNav from "@/components/BottomNav";
 import Header from "@/components/Header";
@@ -21,12 +21,33 @@ import DiceRollPage from "@/pages/DiceRollPage";
 import CardFlipPage from "@/pages/CardFlipPage";
 import NumberGuessPage from "@/pages/NumberGuessPage";
 
+// Security: Backend validation function
+import { validateInitDataOnBackend } from "@/lib/api";
+
 const queryClient = new QueryClient();
 
 type Page =
   | "home" | "tasks" | "spin" | "referral" | "leaderboard"
   | "wallet" | "notifications" | "admin" | "games"
   | "tower" | "dice" | "cardflip" | "numberguess" | "luckybox";
+
+// Device Fingerprint (helps detect alt accounts & shared links)
+function getDeviceFingerprint(): string {
+  const data = [
+    navigator.userAgent,
+    screen.width + "x" + screen.height,
+    screen.colorDepth,
+    navigator.language,
+    navigator.hardwareConcurrency || "0",
+  ].join("|");
+
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    hash = (hash << 5) - hash + data.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600&display=swap');
@@ -128,7 +149,7 @@ const CSS = `
 .ld-dot:nth-child(2) { animation-delay: 0.2s; }
 .ld-dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* BAN */
+/* BAN / BLOCKED */
 .bn-root {
   position: fixed; inset: 0;
   background: #06080f;
@@ -205,10 +226,59 @@ const CSS = `
 `;
 
 function AppContent() {
-  const { isLoading, user, isAdmin, telegramUser } = useApp();
-  const [currentPage, setCurrentPage] = useState<Page>("home");
+  const { isLoading, user, isAdmin, telegramUser, setTelegramUser } = useApp();
 
-  if (isLoading) {
+  const [currentPage, setCurrentPage] = useState<Page>("home");
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isAltBlocked, setIsAltBlocked] = useState(false);
+
+  // Security Check - Runs once when app loads
+  useEffect(() => {
+    const runSecurityCheck = async () => {
+      const tg = (window as any).Telegram?.WebApp;
+      if (!tg) {
+        setAuthError("Please open this app inside Telegram");
+        setAuthChecked(true);
+        return;
+      }
+
+      const rawInitData = tg.initData;
+      if (!rawInitData) {
+        setAuthError("Invalid Telegram session");
+        setAuthChecked(true);
+        return;
+      }
+
+      tg.ready();
+
+      try {
+        const fingerprint = getDeviceFingerprint();
+
+        const result = await validateInitDataOnBackend(rawInitData, fingerprint);
+
+        if (result.success) {
+          setTelegramUser(result.user);
+        } else {
+          if (result.reason === "multiple_devices" || result.reason === "alt_detected") {
+            setIsAltBlocked(true);
+          } else {
+            setAuthError(result.message || "Session validation failed");
+          }
+        }
+      } catch (err) {
+        console.error("Auth error:", err);
+        setAuthError("Authentication failed. Please reopen the app from Telegram.");
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+
+    if (!authChecked) runSecurityCheck();
+  }, [authChecked, setTelegramUser]);
+
+  // Loading Screen
+  if (!authChecked || isLoading) {
     return (
       <>
         <style>{CSS}</style>
@@ -239,8 +309,42 @@ function AppContent() {
     );
   }
 
-  // Not inside Telegram — show a gate screen, expose nothing
-  if (!telegramUser) {
+  // Alt Account / Multiple Device Blocked Screen
+  if (isAltBlocked) {
+    return (
+      <>
+        <style>{CSS}</style>
+        <div className="bn-root">
+          <div className="bn-grid" />
+          <div className="bn-orb" />
+          <div className="bn-scan" />
+          <div className="bn-gif-wrap">
+            <img
+              src="https://repgyetdcodkynrbxocg.supabase.co/storage/v1/object/public/images/telegram-1773769725182-0fda5970.gif"
+              alt="Blocked"
+              className="bn-gif"
+            />
+          </div>
+          <div className="bn-badge">
+            <div className="bn-badge-dot" />
+            SECURITY ALERT
+          </div>
+          <div className="bn-title">MULTIPLE DEVICES<br/>DETECTED</div>
+          <div className="bn-line" />
+          <div className="bn-msg">
+            Your account was accessed from different devices.<br />
+            Access has been temporarily blocked to protect your rewards.
+          </div>
+          <div className="bn-support">
+            Contact support with your Telegram username
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Not opened inside Telegram or invalid session
+  if (!telegramUser || authError) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -252,7 +356,6 @@ function AppContent() {
         padding: '32px 24px',
         fontFamily: "'Space Grotesk', sans-serif",
       }}>
-        {/* Ambient glow */}
         <div style={{
           position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)',
           width: 320, height: 320, borderRadius: '50%',
@@ -260,7 +363,6 @@ function AppContent() {
           pointerEvents: 'none',
         }} />
 
-        {/* Logo */}
         <div style={{
           width: 88, height: 88, borderRadius: 24,
           background: 'linear-gradient(135deg, hsl(262 80% 50% / 0.2), hsl(220 80% 50% / 0.2))',
@@ -276,7 +378,6 @@ function AppContent() {
           />
         </div>
 
-        {/* Title */}
         <div style={{
           fontSize: 22, fontWeight: 700, letterSpacing: 3,
           color: '#fff', marginBottom: 6,
@@ -288,7 +389,6 @@ function AppContent() {
           WATCH · EARN · WIN
         </div>
 
-        {/* Message card */}
         <div style={{
           width: '100%', maxWidth: 340,
           background: 'hsl(220 25% 10% / 0.8)',
@@ -297,7 +397,6 @@ function AppContent() {
           backdropFilter: 'blur(20px)',
           textAlign: 'center',
         }}>
-          {/* Telegram icon */}
           <div style={{
             width: 56, height: 56, borderRadius: '50%', margin: '0 auto 16px',
             background: 'linear-gradient(135deg, #0088cc, #00aaff)',
@@ -341,6 +440,7 @@ function AppContent() {
     );
   }
 
+  // Banned User Screen
   if (user?.is_banned) {
     return (
       <>

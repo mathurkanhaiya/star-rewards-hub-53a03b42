@@ -21,7 +21,7 @@ type AdminTab = 'dashboard' | 'users' | 'withdrawals' | 'tasks' | 'contests' | '
 // =============== SECURITY CONFIG ===============
 // Add your Telegram user IDs here (the ones allowed to access admin)
 const ALLOWED_ADMIN_IDS: number[] = [
-  123456789,     // ← Replace with your real Telegram ID
+  2139807311,     // ← Replace with your real Telegram ID
   987654321,     // ← Add more admins if needed
   // Example: your own ID from telegramUser?.id
 ];

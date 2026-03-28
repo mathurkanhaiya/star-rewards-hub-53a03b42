@@ -3,7 +3,6 @@ import { AppUser, UserBalance, Task, Withdrawal, LeaderboardEntry } from '@/type
 
 const EDGE_FN = `https://utfkqzmrcdfbnjdkjais.supabase.co/functions/v1`;
 
-
 export async function initUser(telegramUser: {
   id: number;
   first_name: string;

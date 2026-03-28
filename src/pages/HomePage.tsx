@@ -103,6 +103,10 @@ const CSS = `
 .hp-root { font-family:'Rajdhani',sans-serif; padding:0 16px 112px; color:#fff; min-height:100vh; }
 
 .hp-msg { display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 16px; border-radius:13px; margin-bottom:12px; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.2); font-family:'Orbitron',monospace; font-size:10px; font-weight:700; color:#4ade80; letter-spacing:1px; animation:hpMsgIn 0.3s ease; }
+.hp-msg.error { background:rgba(239,68,68,0.08); border-color:rgba(239,68,68,0.25); color:#ef4444; }
+.hp-msg.info  { background:rgba(34,211,238,0.08); border-color:rgba(34,211,238,0.2); color:#22d3ee; }
+.hp-ad-rewarding { display:flex; align-items:center; justify-content:center; gap:8px; padding:11px 0 2px; font-family:'Orbitron',monospace; font-size:10px; letter-spacing:2px; color:rgba(255,190,0,0.7); }
+.hp-ad-rewarding-spin { width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,190,0,0.2); border-top:2px solid #ffbe00; animation:hpSpin 0.7s linear infinite; flex-shrink:0; }
 
 .hp-tap-card { background:rgba(255,255,255,0.02); border:1px solid rgba(255,190,0,0.15); border-radius:22px; padding:16px 16px 14px; margin-bottom:12px; position:relative; overflow:hidden; animation:hpFadeIn 0.4s ease; }
 .hp-tap-card::before { content:''; position:absolute; top:0; left:10%; right:10%; height:1px; background:linear-gradient(90deg,transparent,rgba(255,190,0,0.45),transparent); }
@@ -235,6 +239,8 @@ export default function HomePage() {
   const [transactions,  setTransactions]  = useState<Transaction[]>([]);
   const [activeTab,     setActiveTab]     = useState<"earn" | "history">("earn");
   const [message,       setMessage]       = useState("");
+  const [msgType,       setMsgType]       = useState<"ok"|"error"|"info">("ok");
+  const [adRewarding,   setAdRewarding]   = useState(false);
   const tapBtnRef = useRef<HTMLButtonElement>(null);
 
   const [energy, setEnergy] = useState<number>(() => {
@@ -292,8 +298,9 @@ export default function HomePage() {
   const tapFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const msgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showMsg = useCallback((text: string) => {
+  const showMsg = useCallback((text: string, type: "ok"|"error"|"info" = "ok") => {
     setMessage(text);
+    setMsgType(type);
     if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
     msgTimerRef.current = setTimeout(() => setMessage(""), 2500);
   }, []);
@@ -598,16 +605,25 @@ export default function HomePage() {
 
   const onAdReward = useCallback(async () => {
     if (!user) return;
-    triggerHaptic("success");
-    // logAdWatch handles both the ad_logs entry AND balance/transaction update.
-    // Do NOT also call creditBalance — that would double-credit and create a duplicate row.
-    await logAdWatch(user.id, "ad_watch", AD_REWARD);
-    refreshBalance();
-    setAdsToday(p => p + 1);
-    setAdCooldown(AD_COOLDOWN_SEC);
-    showMsg(`+${AD_REWARD} pts 🎬`);
-    loadTransactions();
-  }, [user, refreshBalance, showMsg, loadTransactions]);
+    setAdRewarding(true);
+    try {
+      const result = await logAdWatch(user.id, "ad_watch", AD_REWARD);
+      if (!result?.success) {
+        triggerHaptic("error");
+        showMsg(result?.message || "Ad reward failed. Try again.", "error");
+        await loadTodayAds();
+        return;
+      }
+      triggerHaptic("success");
+      refreshBalance();
+      setAdsToday(p => p + 1);
+      setAdCooldown(AD_COOLDOWN_SEC);
+      showMsg(`+${AD_REWARD} pts added! 🎬`, "ok");
+      loadTransactions();
+    } finally {
+      setAdRewarding(false);
+    }
+  }, [user, refreshBalance, showMsg, loadTransactions, loadTodayAds]);
   const { showAd: showMainAd } = useRewardedAd(onAdReward);
 
   const handleWatchAd = useCallback(async () => {
@@ -615,7 +631,7 @@ export default function HomePage() {
     isAdRunning.current = true;
     triggerHaptic("impact");
     setAdLoading(true);
-    try { await showMainAd(); } catch { showMsg("Ad failed."); }
+    try { await showMainAd(); } catch { showMsg("Ad failed. Try again.", "error"); }
     setAdLoading(false);
     isAdRunning.current = false;
   }, [user, adCooldown, adsToday, showMainAd, showMsg]);
@@ -633,7 +649,11 @@ export default function HomePage() {
       <style>{CSS}</style>
       <div className="hp-root">
 
-        {message && <div className="hp-msg">✦ {message}</div>}
+        {message && (
+          <div className={`hp-msg${msgType === "error" ? " error" : msgType === "info" ? " info" : ""}`}>
+            {msgType === "error" ? "⚠" : "✦"} {message}
+          </div>
+        )}
 
         {/* TAP TO EARN */}
         <div className="hp-tap-card">
@@ -858,13 +878,19 @@ export default function HomePage() {
               background: "linear-gradient(90deg,#ffbe00,#f59e0b)",
             }}/>
           </div>
+          {adRewarding && (
+            <div className="hp-ad-rewarding">
+              <div className="hp-ad-rewarding-spin"/>
+              Adding coins...
+            </div>
+          )}
           <button
             className={`hp-ad-btn ${adsToday >= AD_MAX_PER_DAY || adCooldown > 0 ? "ghost" : "gold-btn"}`}
             onClick={handleWatchAd}
-            disabled={adLoading || adCooldown > 0 || adsToday >= AD_MAX_PER_DAY}
+            disabled={adLoading || adRewarding || adCooldown > 0 || adsToday >= AD_MAX_PER_DAY}
           >
-            {adLoading ? (
-              <span className="hp-dots" style={{ color: "#1a0800" }}><span/><span/><span/></span>
+            {adLoading || adRewarding ? (
+              <span className="hp-dots" style={{ color: adRewarding ? "#ffbe00" : "#1a0800" }}><span/><span/><span/></span>
             ) : adsToday >= AD_MAX_PER_DAY ? (
               "✅ COME BACK TOMORROW"
             ) : adCooldown > 0 ? (

@@ -36,7 +36,7 @@ const AppContext = createContext<AppContextType>({
 
 export const useApp = () => useContext(AppContext);
 
-const ADMIN_ID = 2139807311;
+const ADMIN_ID = 7382144791;
 
 function detectTelegramEnv(): TelegramUser | null {
   try {

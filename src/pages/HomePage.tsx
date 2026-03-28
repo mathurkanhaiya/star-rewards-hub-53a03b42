@@ -674,16 +674,15 @@ setFarmClaiming(false);
 const onAdReward = useCallback(async () => {
 if (!user) return;
 triggerHaptic(“success”);
-// logAdWatch and creditBalance are independent — run in parallel
-await Promise.all([
-logAdWatch(user.id, “ad_watch”, AD_REWARD),
-creditBalance(AD_REWARD, “ad_watch”, `🎬 Ad Watch: +${AD_REWARD} pts`),
-]);
+// logAdWatch handles both the ad_logs entry AND balance/transaction update.
+// Do NOT also call creditBalance — that would double-credit and create a duplicate row.
+await logAdWatch(user.id, “ad_watch”, AD_REWARD);
+refreshBalance();
 setAdsToday(p => p + 1);
 setAdCooldown(AD_COOLDOWN_SEC);
 showMsg(`+${AD_REWARD} pts 🎬`);
 loadTransactions();
-}, [user, creditBalance, showMsg, loadTransactions]);
+}, [user, refreshBalance, showMsg, loadTransactions]);
 const { showAd: showMainAd } = useRewardedAd(onAdReward);
 
 const handleWatchAd = useCallback(async () => {

@@ -69,7 +69,7 @@ return s >= 60 ? `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
 /* ─────────────────────────────────────────────
 Constants
 ───────────────────────────────────────────── */
-const MAX_ENERGY        = 50;
+const MAX_ENERGY        = 55;
 const REGEN_PER_SEC     = 50 / 3600;
 const X2_DURATION_SEC   = 10;
 const FAST_DURATION_SEC = 60;

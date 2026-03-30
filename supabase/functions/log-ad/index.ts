@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const DAILY_LIMIT = 50;
+const DAILY_LIMIT = 30;
 const REWARD = 50; // 🔒 FIXED (no frontend control)
 
 serve(async (req) => {

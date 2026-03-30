@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import { getTransactions, logAdWatch } from "@/lib/api";
+import { getTransactions } from "@/lib/api";
 import { useRewardedAd } from "@/hooks/useAdsgram";
 import { supabase } from "@/integrations/supabase/client";
 import AdsgramTask from "@/components/AdsgramTask";
@@ -48,7 +48,6 @@ function lsSet(key: string, val: string) {
 function lsRemove(key: string) {
   try { localStorage.removeItem(key); } catch {}
 }
-
 function saveBoost(key: string, expiresAt: number) { lsSet(key, String(expiresAt)); }
 function loadBoost(key: string): number {
   const v = lsGet(key);
@@ -65,7 +64,8 @@ const FAST_DURATION_SEC = 60;
 const FAST_REGEN_MULT   = 2;
 const FARM_DURATION_MS  = 30 * 60 * 1000;
 const FARM_REWARD       = 100;
-const AD_MAX_PER_DAY    = 30;
+const AD_MAX_PER_DAY    = 50;   // ← 50/day
+const AD_MAX_PER_HOUR   = 10;   // ← 10/hour
 const AD_REWARD         = 50;
 const AD_COOLDOWN_SEC   = 5;
 const AD_INIT_DELAY_SEC = 5;
@@ -101,7 +101,6 @@ const CSS = `
 @keyframes hpSpin     { to{transform:rotate(360deg)} }
 
 .hp-root { font-family:'Rajdhani',sans-serif; padding:0 16px 112px; color:#fff; min-height:100vh; }
-
 .hp-msg { display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 16px; border-radius:13px; margin-bottom:12px; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.2); font-family:'Orbitron',monospace; font-size:10px; font-weight:700; color:#4ade80; letter-spacing:1px; animation:hpMsgIn 0.3s ease; }
 .hp-msg.error { background:rgba(239,68,68,0.08); border-color:rgba(239,68,68,0.25); color:#ef4444; }
 .hp-msg.info  { background:rgba(34,211,238,0.08); border-color:rgba(34,211,238,0.2); color:#22d3ee; }
@@ -199,21 +198,26 @@ const CSS = `
 .hp-farm-btn.wait::after { display:none; }
 
 .hp-ad-card { background:rgba(255,255,255,0.02); border-radius:22px; padding:16px; margin-bottom:12px; position:relative; overflow:hidden; animation:hpFadeIn 0.4s 0.15s ease both; }
-.hp-ad-card.gold   { border:1px solid rgba(255,190,0,0.15); }
-.hp-ad-card.gold::before   { content:''; position:absolute; top:0; left:10%; right:10%; height:1px; background:linear-gradient(90deg,transparent,rgba(255,190,0,0.4),transparent); }
+.hp-ad-card.gold { border:1px solid rgba(255,190,0,0.15); }
+.hp-ad-card.gold::before { content:''; position:absolute; top:0; left:10%; right:10%; height:1px; background:linear-gradient(90deg,transparent,rgba(255,190,0,0.4),transparent); }
 .hp-ad-top   { display:flex; align-items:center; gap:12px; margin-bottom:11px; }
 .hp-ad-icon  { width:42px; height:42px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
 .hp-ad-info  { flex:1; min-width:0; }
 .hp-ad-title { font-family:'Orbitron',monospace; font-size:11px; font-weight:700; letter-spacing:2px; color:rgba(255,255,255,0.8); margin-bottom:2px; }
 .hp-ad-sub   { font-size:12px; color:rgba(255,255,255,0.3); letter-spacing:0.5px; }
+.hp-ad-sub.warn { color:#f97316; }
 .hp-ad-badge { font-family:'Orbitron',monospace; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; flex-shrink:0; }
-.hp-ad-prog-track { height:4px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden; margin-bottom:11px; }
+.hp-ad-prog-track { height:4px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden; margin-bottom:6px; }
 .hp-ad-prog-fill  { height:100%; border-radius:2px; transition:width 0.4s; }
+/* dual progress */
+.hp-ad-limits { display:flex; gap:8px; margin-bottom:11px; }
+.hp-ad-limit-block { flex:1; }
+.hp-ad-limit-label { font-family:'Orbitron',monospace; font-size:7px; letter-spacing:1px; color:rgba(255,255,255,0.2); margin-bottom:4px; display:flex; justify-content:space-between; }
 .hp-ad-btn { width:100%; padding:13px; border-radius:14px; border:none; font-family:'Orbitron',monospace; font-size:12px; font-weight:700; letter-spacing:2px; cursor:pointer; transition:transform 0.12s,opacity 0.2s; position:relative; overflow:hidden; }
 .hp-ad-btn::after { content:''; position:absolute; top:0; left:-100%; width:60%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent); animation:hpShine 3s ease-in-out infinite; }
 .hp-ad-btn:active   { transform:scale(0.97); }
 .hp-ad-btn:disabled { opacity:0.5; cursor:not-allowed; }
-.hp-ad-btn.gold-btn   { background:linear-gradient(135deg,#ffbe00,#f59e0b,#d97706); color:#1a0800; box-shadow:0 5px 20px rgba(255,190,0,0.3); }
+.hp-ad-btn.gold-btn { background:linear-gradient(135deg,#ffbe00,#f59e0b,#d97706); color:#1a0800; box-shadow:0 5px 20px rgba(255,190,0,0.3); }
 .hp-ad-btn.ghost { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.35); box-shadow:none; }
 .hp-ad-btn.ghost::after { display:none; }
 .hp-cd-txt { font-family:'Orbitron',monospace; font-size:11px; letter-spacing:2px; animation:hpCdFlash 1s ease-in-out infinite; }
@@ -221,7 +225,6 @@ const CSS = `
 .hp-tabs { display:flex; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:4px; gap:4px; margin-bottom:12px; }
 .hp-tab  { flex:1; padding:8px; border-radius:10px; border:none; background:none; font-family:'Orbitron',monospace; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.25); cursor:pointer; transition:background 0.2s,color 0.2s; }
 .hp-tab.active { background:#ffbe00; color:#1a0800; box-shadow:0 2px 12px rgba(255,190,0,0.3); }
-
 .hp-tx-empty { text-align:center; padding:28px 0; font-family:'Orbitron',monospace; font-size:10px; letter-spacing:3px; color:rgba(255,255,255,0.15); text-transform:uppercase; }
 .hp-tx { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:14px; padding:11px 14px; margin-bottom:7px; }
 .hp-tx-icon { width:36px; height:36px; border-radius:10px; background:rgba(255,190,0,0.08); border:1px solid rgba(255,190,0,0.15); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
@@ -259,15 +262,15 @@ export default function HomePage() {
   const x2Active   = x2SecsLeft   > 0;
   const fastActive = fastSecsLeft > 0;
 
-  const fastActiveRef  = useRef(fastActive);
-  const x2ActiveRef    = useRef(x2Active);
-  const energyRef      = useRef(energy);
-  const farmStartRef   = useRef<number | null>(null);
-  const farmReadyRef   = useRef(false);
+  const fastActiveRef = useRef(fastActive);
+  const x2ActiveRef   = useRef(x2Active);
+  const energyRef     = useRef(energy);
+  const farmStartRef  = useRef<number | null>(null);
+  const farmReadyRef  = useRef(false);
 
   useEffect(() => { fastActiveRef.current = fastActive; }, [fastActive]);
   useEffect(() => { x2ActiveRef.current   = x2Active;   }, [x2Active]);
-  useEffect(() => { energyRef.current     = energy;      }, [energy]);
+  useEffect(() => { energyRef.current     = energy;     }, [energy]);
 
   const [floatPts, setFloatPts] = useState<FloatPt[]>([]);
 
@@ -289,15 +292,18 @@ export default function HomePage() {
   const [dropCooldown,     setDropCooldown]     = useState(DROP_COOLDOWN_SEC);
   const dropClaimingRef = useRef(false);
 
-  const [adsToday,   setAdsToday]   = useState(0);
-  const [adCooldown, setAdCooldown] = useState(AD_INIT_DELAY_SEC);
-  const [adLoading,  setAdLoading]  = useState(false);
+  /* ── Ad state ── */
+  const [adsToday,    setAdsToday]    = useState(0);
+  const [adsThisHour, setAdsThisHour] = useState(0); // ← hourly count
+  const [adCooldown,  setAdCooldown]  = useState(AD_INIT_DELAY_SEC);
+  const [adLoading,   setAdLoading]   = useState(false);
   const isAdRunning = useRef(false);
+  const adCredited  = useRef(false);
 
   const pendingTapPts = useRef(0);
   const tapFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const msgTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const msgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showMsg = useCallback((text: string, type: "ok"|"error"|"info" = "ok") => {
     setMessage(text);
     setMsgType(type);
@@ -311,17 +317,26 @@ export default function HomePage() {
     setTransactions(data ?? []);
   }, [user]);
 
+  /* ── Count from transactions — both daily and hourly ── */
   const loadTodayAds = useCallback(async () => {
     if (!user) return;
-    const start = new Date();
-    start.setUTCHours(0, 0, 0, 0);
-    const { count } = await supabase
-      .from("ad_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("ad_type", "ad_watch")
-      .gte("created_at", start.toISOString());
-    setAdsToday(count ?? 0);
+    const dayStart = new Date(); dayStart.setUTCHours(0,0,0,0);
+    const hourStart = new Date(Date.now() - 60 * 60 * 1000); // last 60 min
+
+    const [dayRes, hourRes] = await Promise.all([
+      supabase.from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("type", "ad_watch")
+        .gte("created_at", dayStart.toISOString()),
+      supabase.from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("type", "ad_watch")
+        .gte("created_at", hourStart.toISOString()),
+    ]);
+    setAdsToday(dayRes.count ?? 0);
+    setAdsThisHour(hourRes.count ?? 0);
   }, [user]);
 
   const loadDropState = useCallback(async () => {
@@ -329,19 +344,14 @@ export default function HomePage() {
     setDropLoading(true);
     try {
       const today = new Date().toISOString().split("T")[0];
-
       const { data: todayClaim } = await supabase
-        .from("daily_claims")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("claim_date", today)
-        .maybeSingle();
+        .from("daily_claims").select("id")
+        .eq("user_id", user.id).eq("claim_date", today).maybeSingle();
       const claimedToday = !!todayClaim;
       setDropClaimedToday(claimedToday);
 
       const { data: claims } = await supabase
-        .from("daily_claims")
-        .select("claim_date")
+        .from("daily_claims").select("claim_date")
         .eq("user_id", user.id)
         .order("claim_date", { ascending: false })
         .limit(8);
@@ -349,7 +359,7 @@ export default function HomePage() {
       if (!claims?.length) { setDropStreak(0); return; }
 
       let streak = 0;
-      const now = new Date(); now.setUTCHours(0, 0, 0, 0);
+      const now = new Date(); now.setUTCHours(0,0,0,0);
       const startOffset = claimedToday ? 0 : 1;
       for (let i = 0; i < claims.length; i++) {
         const expected = new Date(now);
@@ -368,7 +378,7 @@ export default function HomePage() {
     loadTransactions();
     loadTodayAds();
     loadDropState();
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); // eslint-disable-line
 
   useEffect(() => {
     const tick = setInterval(() => {
@@ -380,49 +390,38 @@ export default function HomePage() {
         lsSet("lastEnergyTime", String(Date.now()));
         return next;
       });
-
-      setX2SecsLeft(p => {
-        const n = Math.max(0, p - 1);
-        if (p > 0 && n === 0) lsRemove("boostX2Exp");
-        return n;
-      });
-      setFastSecsLeft(p => {
-        const n = Math.max(0, p - 1);
-        if (p > 0 && n === 0) lsRemove("boostFastExp");
-        return n;
-      });
-
+      setX2SecsLeft(p => { const n = Math.max(0,p-1); if(p>0&&n===0) lsRemove("boostX2Exp"); return n; });
+      setFastSecsLeft(p => { const n = Math.max(0,p-1); if(p>0&&n===0) lsRemove("boostFastExp"); return n; });
       setAdCooldown(p => Math.max(0, p - 1));
       setDropCooldown(p => Math.max(0, p - 1));
-
       const fs = farmStartRef.current;
       if (fs && !farmReadyRef.current) {
         const elapsed = Date.now() - fs;
-        const pct     = Math.min(100, (elapsed / FARM_DURATION_MS) * 100);
+        const pct = Math.min(100, (elapsed / FARM_DURATION_MS) * 100);
         setFarmProgress(pct);
         if (elapsed >= FARM_DURATION_MS) {
-          setFarmReady(true);
-          farmReadyRef.current = true;
-          setFarmTimeLeft("Ready!");
+          setFarmReady(true); farmReadyRef.current = true; setFarmTimeLeft("Ready!");
         } else {
           const rem = Math.ceil((FARM_DURATION_MS - elapsed) / 1000);
-          setFarmTimeLeft(`${Math.floor(rem / 60)}:${(rem % 60).toString().padStart(2, "0")}`);
+          setFarmTimeLeft(`${Math.floor(rem/60)}:${(rem%60).toString().padStart(2,"0")}`);
         }
       }
     }, 1000);
-
     return () => clearInterval(tick);
   }, []);
+
+  /* ── Refresh hourly count every 5 min ── */
+  useEffect(() => {
+    const t = setInterval(() => { loadTodayAds(); }, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [loadTodayAds]);
 
   const creditBalance = useCallback(async (pts: number, type: string, desc: string) => {
     if (!user) return;
     try {
       const { data: bal } = await supabase
-        .from("balances")
-        .select("points,total_earned")
-        .eq("user_id", user.id)
-        .single();
-
+        .from("balances").select("points,total_earned")
+        .eq("user_id", user.id).single();
       if (bal) {
         await Promise.all([
           supabase.from("balances").update({
@@ -434,9 +433,7 @@ export default function HomePage() {
           }),
         ]);
       }
-    } catch (err) {
-      console.error("creditBalance:", err);
-    }
+    } catch (err) { console.error("creditBalance:", err); }
     refreshBalance();
   }, [user, refreshBalance]);
 
@@ -446,11 +443,8 @@ export default function HomePage() {
     pendingTapPts.current = 0;
     try {
       const { data: bal } = await supabase
-        .from("balances")
-        .select("points,total_earned")
-        .eq("user_id", user.id)
-        .single();
-
+        .from("balances").select("points,total_earned")
+        .eq("user_id", user.id).single();
       if (bal) {
         await Promise.all([
           supabase.from("balances").update({
@@ -458,9 +452,7 @@ export default function HomePage() {
             total_earned: bal.total_earned + pts,
           }).eq("user_id", user.id),
           supabase.from("transactions").insert({
-            user_id: user.id,
-            type: "tap_earn",
-            points: pts,
+            user_id: user.id, type: "tap_earn", points: pts,
             description: `👆 Tap (${pts} pts)`,
           }),
         ]);
@@ -483,23 +475,19 @@ export default function HomePage() {
   const handleTap = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     if (!user || energyRef.current < 1) return;
     triggerHaptic("impact");
-
     const pts = x2ActiveRef.current ? 2 : 1;
-
     setEnergy(prev => {
       const next = Math.max(0, prev - 1);
       lsSet("energy", String(next));
       lsSet("lastEnergyTime", String(Date.now()));
       return next;
     });
-
     const rect = tapBtnRef.current?.getBoundingClientRect();
     const id   = performance.now() + Math.random();
     const x    = rect ? e.clientX - rect.left - 14 : 50;
     const y    = rect ? e.clientY - rect.top  - 30 : 20;
     setFloatPts(p => [...p, { id, x, y, val: pts }]);
     setTimeout(() => setFloatPts(p => p.filter(f => f.id !== id)), 900);
-
     pendingTapPts.current += pts;
     if (tapFlushTimer.current) clearTimeout(tapFlushTimer.current);
     tapFlushTimer.current = setTimeout(flushTaps, 1500);
@@ -508,16 +496,14 @@ export default function HomePage() {
   const onX2Reward = useCallback(() => {
     saveBoost("boostX2Exp", Date.now() + X2_DURATION_SEC * 1000);
     setX2SecsLeft(X2_DURATION_SEC);
-    triggerHaptic("success");
-    showMsg("⚡ 2x active for 10s!");
+    triggerHaptic("success"); showMsg("⚡ 2x active for 10s!");
   }, [showMsg]);
   const { showAd: showX2Ad } = useRewardedAd(onX2Reward);
 
   const onFastReward = useCallback(() => {
     saveBoost("boostFastExp", Date.now() + FAST_DURATION_SEC * 1000);
     setFastSecsLeft(FAST_DURATION_SEC);
-    triggerHaptic("success");
-    showMsg("🔋 Fast charge for 1 min!");
+    triggerHaptic("success"); showMsg("🔋 Fast charge for 1 min!");
   }, [showMsg]);
   const { showAd: showFastAd } = useRewardedAd(onFastReward);
 
@@ -525,51 +511,35 @@ export default function HomePage() {
     if (!user || dropClaimedToday || dropClaiming || dropLoading || dropCooldown > 0) return;
     if (dropClaimingRef.current) return;
     dropClaimingRef.current = true;
-    triggerHaptic("success");
-    setDropClaiming(true);
+    triggerHaptic("success"); setDropClaiming(true);
     try {
       const today = new Date().toISOString().split("T")[0];
-
       const { data: existing } = await supabase
-        .from("daily_claims")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("claim_date", today)
-        .maybeSingle();
+        .from("daily_claims").select("id")
+        .eq("user_id", user.id).eq("claim_date", today).maybeSingle();
       if (existing) { setDropClaimedToday(true); return; }
-
       const dayIndex = Math.min(dropStreak, 6);
       const reward   = DAILY_DROP[dayIndex].pts;
-
       const { error } = await supabase.from("daily_claims").insert({
         user_id: user.id, claim_date: today, claimed_at: new Date().toISOString(),
       });
       if (error) { setDropClaimedToday(true); return; }
-
-      await creditBalance(reward, "daily_drop", `🎁 Daily Drop Day ${dayIndex + 1}: +${reward} pts`);
+      await creditBalance(reward, "daily_drop", `🎁 Daily Drop Day ${dayIndex+1}: +${reward} pts`);
       setDropClaimedToday(true);
       setDropStreak(p => p + 1);
-      showMsg(`+${reward} pts 🎁 Day ${dayIndex + 1}!`);
+      showMsg(`+${reward} pts 🎁 Day ${dayIndex+1}!`);
       loadTransactions();
-    } catch {
-      showMsg("Error claiming. Try again.");
-    } finally {
-      setDropClaiming(false);
-      dropClaimingRef.current = false;
-    }
+    } catch { showMsg("Error claiming. Try again.", "error"); }
+    finally { setDropClaiming(false); dropClaimingRef.current = false; }
   }, [user, dropClaimedToday, dropClaiming, dropLoading, dropCooldown,
       dropStreak, creditBalance, showMsg, loadTransactions]);
 
   const onFarmStartReward = useCallback(() => {
     const now = Date.now();
-    farmStartRef.current = now;
-    farmReadyRef.current = false;
-    setFarmStart(now);
-    setFarmProgress(0);
-    setFarmReady(false);
+    farmStartRef.current = now; farmReadyRef.current = false;
+    setFarmStart(now); setFarmProgress(0); setFarmReady(false);
     lsSet("farmStart", String(now));
-    triggerHaptic("impact");
-    showMsg("🌾 Farming started!");
+    triggerHaptic("impact"); showMsg("🌾 Farming started!");
   }, [showMsg]);
   const { showAd: showFarmStartAd } = useRewardedAd(onFarmStartReward);
 
@@ -577,12 +547,8 @@ export default function HomePage() {
     if (!user) return;
     triggerHaptic("success");
     await creditBalance(FARM_REWARD, "farm_claim", `🌾 Farm: +${FARM_REWARD} pts`);
-    farmStartRef.current = null;
-    farmReadyRef.current = false;
-    setFarmStart(null);
-    setFarmProgress(0);
-    setFarmReady(false);
-    setFarmTimeLeft("");
+    farmStartRef.current = null; farmReadyRef.current = false;
+    setFarmStart(null); setFarmProgress(0); setFarmReady(false); setFarmTimeLeft("");
     lsRemove("farmStart");
     showMsg(`+${FARM_REWARD} pts 🌾`);
     loadTransactions();
@@ -592,57 +558,73 @@ export default function HomePage() {
   const handleFarmStart = useCallback(async () => {
     if (farmStart || farmClaiming) return;
     setFarmClaiming(true);
-    try { await showFarmStartAd(); } catch { showMsg("Ad failed."); }
+    try { await showFarmStartAd(); } catch { showMsg("Ad failed.", "error"); }
     setFarmClaiming(false);
   }, [farmStart, farmClaiming, showFarmStartAd, showMsg]);
 
   const handleFarmClaim = useCallback(async () => {
     if (!farmReady || farmClaiming) return;
     setFarmClaiming(true);
-    try { await showFarmClaimAd(); } catch { showMsg("Ad failed."); }
+    try { await showFarmClaimAd(); } catch { showMsg("Ad failed.", "error"); }
     setFarmClaiming(false);
   }, [farmReady, farmClaiming, showFarmClaimAd, showMsg]);
 
+  /* ── AD REWARD — one transaction, strict guard ── */
   const onAdReward = useCallback(async () => {
-    if (!user) return;
+    if (!user || adCredited.current) return;
+    adCredited.current = true;
     setAdRewarding(true);
     try {
-      const result = await logAdWatch(user.id, "ad_watch", AD_REWARD);
-      if (!result?.success) {
-        triggerHaptic("error");
-        showMsg(result?.message || "Ad reward failed. Try again.", "error");
-        await loadTodayAds();
-        return;
-      }
-      triggerHaptic("success");
-      refreshBalance();
+      await creditBalance(AD_REWARD, "ad_watch", `🎬 Ad Watch: +${AD_REWARD} pts`);
       setAdsToday(p => p + 1);
+      setAdsThisHour(p => p + 1);
       setAdCooldown(AD_COOLDOWN_SEC);
-      showMsg(`+${AD_REWARD} pts added! 🎬`, "ok");
+      triggerHaptic("success");
+      showMsg(`+${AD_REWARD} pts added! 🎬`);
       loadTransactions();
+    } catch {
+      showMsg("Reward failed. Try again.", "error");
     } finally {
       setAdRewarding(false);
     }
-  }, [user, refreshBalance, showMsg, loadTransactions, loadTodayAds]);
+  }, [user, creditBalance, showMsg, loadTransactions]);
   const { showAd: showMainAd } = useRewardedAd(onAdReward);
 
   const handleWatchAd = useCallback(async () => {
-    if (!user || isAdRunning.current || adCooldown > 0 || adsToday >= AD_MAX_PER_DAY) return;
+    /* Block if either limit hit */
+    if (!user || isAdRunning.current || adCooldown > 0) return;
+    if (adsToday >= AD_MAX_PER_DAY) return;
+    if (adsThisHour >= AD_MAX_PER_HOUR) {
+      showMsg("Hourly limit reached. Try again in 1 hour.", "info");
+      return;
+    }
     isAdRunning.current = true;
-    triggerHaptic("impact");
-    setAdLoading(true);
+    adCredited.current  = false;
+    triggerHaptic("impact"); setAdLoading(true);
     try { await showMainAd(); } catch { showMsg("Ad failed. Try again.", "error"); }
     setAdLoading(false);
     isAdRunning.current = false;
-  }, [user, adCooldown, adsToday, showMainAd, showMsg]);
+  }, [user, adCooldown, adsToday, adsThisHour, showMainAd, showMsg]);
 
-  const energyPct   = (energy / MAX_ENERGY) * 100;
-  const energyColor = energyPct > 50 ? "#ffbe00" : energyPct > 20 ? "#f97316" : "#ef4444";
-  const isFarming   = !!farmStart && !farmReady;
-  const todayDayIdx = Math.max(0, Math.min(dropStreak - (dropClaimedToday ? 1 : 0), 6));
+  /* ── Derived ── */
+  const energyPct      = (energy / MAX_ENERGY) * 100;
+  const energyColor    = energyPct > 50 ? "#ffbe00" : energyPct > 20 ? "#f97316" : "#ef4444";
+  const isFarming      = !!farmStart && !farmReady;
+  const todayDayIdx    = Math.max(0, Math.min(dropStreak - (dropClaimedToday ? 1 : 0), 6));
   const dropBtnDisabled = dropClaimedToday || dropClaiming || dropLoading || dropCooldown > 0;
-  const dropBtnClass    = dropClaimedToday ? "claimed"
+  const dropBtnClass   = dropClaimedToday ? "claimed"
     : dropCooldown > 0 || dropLoading ? "cooldown" : "claim";
+
+  const hourlyHit  = adsThisHour >= AD_MAX_PER_HOUR;
+  const dailyHit   = adsToday    >= AD_MAX_PER_DAY;
+  const adDisabled = adLoading || adRewarding || adCooldown > 0 || dailyHit || hourlyHit;
+
+  /* ── Sub-label for ad card ── */
+  const adSubLabel = dailyHit
+    ? "✅ Daily limit reached"
+    : hourlyHit
+    ? `⏳ Hourly limit (${AD_MAX_PER_HOUR}/hr) — try in 1 hr`
+    : `${adsToday}/${AD_MAX_PER_DAY} today · ${adsThisHour}/${AD_MAX_PER_HOUR} this hour`;
 
   return (
     <>
@@ -650,8 +632,8 @@ export default function HomePage() {
       <div className="hp-root">
 
         {message && (
-          <div className={`hp-msg${msgType === "error" ? " error" : msgType === "info" ? " info" : ""}`}>
-            {msgType === "error" ? "⚠" : "✦"} {message}
+          <div className={`hp-msg${msgType==="error"?" error":msgType==="info"?" info":""}`}>
+            {msgType==="error" ? "⚠" : "✦"} {message}
           </div>
         )}
 
@@ -668,19 +650,12 @@ export default function HomePage() {
               <div className="hp-tap-ripple"/>
               <div className="hp-tap-ripple"/>
               <div className="hp-tap-ripple"/>
-              <button
-                ref={tapBtnRef}
-                className="hp-tap-btn"
-                onClick={handleTap}
-                disabled={energy < 1}
-              >
+              <button ref={tapBtnRef} className="hp-tap-btn" onClick={handleTap} disabled={energy < 1}>
                 <span className="hp-tap-btn-emoji">🪙</span>
                 <span className="hp-tap-btn-sub">{x2Active ? "+2 PTS" : "+1 PT"}</span>
               </button>
               {floatPts.map(f => (
-                <div key={f.id} className="hp-float-pts" style={{ left: f.x, top: f.y }}>
-                  +{f.val}
-                </div>
+                <div key={f.id} className="hp-float-pts" style={{ left:f.x, top:f.y }}>+{f.val}</div>
               ))}
             </div>
             <div className="hp-energy-wrap">
@@ -689,49 +664,41 @@ export default function HomePage() {
                 <span style={{ color: energyColor }}>
                   {energy >= MAX_ENERGY ? "⚡ FULL"
                     : fastActive ? "⚡ FAST ×2"
-                    : `+${(REGEN_PER_SEC * 60).toFixed(1)}/min`}
+                    : `+${(REGEN_PER_SEC*60).toFixed(1)}/min`}
                 </span>
               </div>
               <div className="hp-energy-track">
                 <div className="hp-energy-fill" style={{
-                  width: `${energyPct}%`,
-                  background: `linear-gradient(90deg,${energyColor}80,${energyColor})`,
-                  boxShadow: `0 0 7px ${energyColor}50`,
+                  width:`${energyPct}%`,
+                  background:`linear-gradient(90deg,${energyColor}80,${energyColor})`,
+                  boxShadow:`0 0 7px ${energyColor}50`,
                 }}/>
                 <div className="hp-energy-segments">
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className="hp-energy-seg"/>
-                  ))}
+                  {Array.from({length:9}).map((_,i) => <div key={i} className="hp-energy-seg"/>)}
                 </div>
               </div>
               {energy < 1 && <div className="hp-regen-label">⏳ Recharging...</div>}
             </div>
           </div>
           <div className="hp-boost-row">
-            <button
-              className={`hp-boost-btn x2 ${x2Active ? "on" : ""}`}
-              onClick={() => { if (!x2Active) showX2Ad(); }}
-              disabled={x2Active}
-            >
+            <button className={`hp-boost-btn x2 ${x2Active?"on":""}`}
+              onClick={() => { if (!x2Active) showX2Ad(); }} disabled={x2Active}>
               <div className="hp-boost-row-inner">
                 <span className="hp-boost-icon">⚡</span>
                 <span className="hp-boost-label">2× TAP</span>
               </div>
               {x2Active
-                ? <div className="hp-boost-timer" style={{ color: "#fbbf24" }}>{fmtBoost(x2SecsLeft)}</div>
+                ? <div className="hp-boost-timer" style={{color:"#fbbf24"}}>{fmtBoost(x2SecsLeft)}</div>
                 : <div className="hp-boost-sub">Watch ad • 10s</div>}
             </button>
-            <button
-              className={`hp-boost-btn fast ${fastActive ? "on" : ""}`}
-              onClick={() => { if (!fastActive) showFastAd(); }}
-              disabled={fastActive}
-            >
+            <button className={`hp-boost-btn fast ${fastActive?"on":""}`}
+              onClick={() => { if (!fastActive) showFastAd(); }} disabled={fastActive}>
               <div className="hp-boost-row-inner">
                 <span className="hp-boost-icon">🔋</span>
                 <span className="hp-boost-label">FAST ×2</span>
               </div>
               {fastActive
-                ? <div className="hp-boost-timer" style={{ color: "#22d3ee" }}>{fmtBoost(fastSecsLeft)}</div>
+                ? <div className="hp-boost-timer" style={{color:"#22d3ee"}}>{fmtBoost(fastSecsLeft)}</div>
                 : <div className="hp-boost-sub">Watch ad • 1min</div>}
             </button>
           </div>
@@ -741,11 +708,11 @@ export default function HomePage() {
         <div className="hp-drop-card">
           <div className="hp-drop-header">
             <div className="hp-drop-title-row">
-              <span style={{ fontSize: 18 }}>🎁</span>
+              <span style={{fontSize:18}}>🎁</span>
               <span className="hp-drop-title">Daily Drop</span>
             </div>
             <div className="hp-drop-streak">
-              🔥 {dropStreak > 0 ? `${Math.min(dropStreak, 7)} Day${dropStreak > 1 ? "s" : ""}` : "New"}
+              🔥 {dropStreak > 0 ? `${Math.min(dropStreak,7)} Day${dropStreak>1?"s":""}` : "New"}
             </div>
           </div>
           {dropLoading ? (
@@ -761,23 +728,14 @@ export default function HomePage() {
                 const locked    = i > todayDayIdx;
                 const isJackpot = i === 6;
                 return (
-                  <div
-                    key={d.day}
-                    className={[
-                      "hp-drop-day",
-                      claimed   ? "claimed" : "",
-                      locked    ? "locked"  : "",
-                      isJackpot ? "jackpot" : "",
-                    ].join(" ").trim()}
-                    style={
-                      current   ? { borderColor: d.color, boxShadow: `0 0 12px ${d.color}30` }
-                      : isJackpot && !locked ? { borderColor: "#a78bfa50" }
-                      : undefined
-                    }
+                  <div key={d.day}
+                    className={["hp-drop-day",claimed?"claimed":"",locked?"locked":"",isJackpot?"jackpot":""].join(" ").trim()}
+                    style={current ? {borderColor:d.color,boxShadow:`0 0 12px ${d.color}30`}
+                      : isJackpot&&!locked ? {borderColor:"#a78bfa50"} : undefined}
                   >
                     {claimed && <div className="hp-drop-check">✓</div>}
                     <div className="hp-drop-pts" style={{
-                      color: claimed ? "#4ade80" : locked ? "rgba(255,255,255,0.25)" : d.color,
+                      color: claimed?"#4ade80":locked?"rgba(255,255,255,0.25)":d.color
                     }}>{d.pts}</div>
                     <div className="hp-drop-dlabel">{d.label}</div>
                   </div>
@@ -785,68 +743,48 @@ export default function HomePage() {
               })}
             </div>
           )}
-          <button
-            className={`hp-drop-btn ${dropBtnClass}`}
-            onClick={handleClaimDrop}
-            disabled={dropBtnDisabled}
-          >
+          <button className={`hp-drop-btn ${dropBtnClass}`} onClick={handleClaimDrop} disabled={dropBtnDisabled}>
             {dropClaiming ? (
-              <span className="hp-dots" style={{ color: "#001a0a" }}><span/><span/><span/></span>
-            ) : dropClaimedToday ? (
-              "✅  Claimed Today!"
-            ) : dropLoading || dropCooldown > 0 ? (
-              <span className="hp-cd-txt">
-                ⏳ {dropLoading ? "Loading..." : `Available in ${dropCooldown}s`}
-              </span>
-            ) : (
-              `🎁  CLAIM +${DAILY_DROP[todayDayIdx]?.pts ?? 100} PTS`
-            )}
+              <span className="hp-dots" style={{color:"#001a0a"}}><span/><span/><span/></span>
+            ) : dropClaimedToday ? "✅  Claimed Today!"
+            : dropLoading || dropCooldown > 0 ? (
+              <span className="hp-cd-txt">⏳ {dropLoading?"Loading...":`Available in ${dropCooldown}s`}</span>
+            ) : `🎁  CLAIM +${DAILY_DROP[todayDayIdx]?.pts ?? 100} PTS`}
           </button>
         </div>
 
         {/* FARM */}
-        <div className={`hp-farm-card ${isFarming ? "farming" : ""}`}>
+        <div className={`hp-farm-card ${isFarming?"farming":""}`}>
           <div className="hp-farm-top">
             <div className="hp-farm-icon">🌾</div>
             <div className="hp-farm-info">
               <div className="hp-farm-title">FARMING</div>
-              <div className={`hp-farm-sub ${isFarming || farmReady ? "live" : ""}`}>
-                {farmReady    ? "✦ Ready to claim!"
-                  : isFarming ? `⏱ ${farmTimeLeft} remaining`
-                  : "Start Farming → 15 min → +100 pts"}
+              <div className={`hp-farm-sub ${isFarming||farmReady?"live":""}`}>
+                {farmReady?"✦ Ready to claim!":isFarming?`⏱ ${farmTimeLeft} remaining`:"Start Farming → 30 min → +100 pts"}
               </div>
             </div>
             <div className="hp-farm-badge">+{FARM_REWARD} PTS</div>
           </div>
           <div className="hp-farm-prog-labels">
-            <span>{farmReady ? "Complete!" : isFarming ? "Farming..." : "Idle"}</span>
-            <span style={{ color: farmReady ? "#ffbe00" : "#4ade80" }}>
-              {Math.round(farmProgress)}%
-            </span>
+            <span>{farmReady?"Complete!":isFarming?"Farming...":"Idle"}</span>
+            <span style={{color:farmReady?"#ffbe00":"#4ade80"}}>{Math.round(farmProgress)}%</span>
           </div>
           <div className="hp-farm-track">
             <div className="hp-farm-fill" style={{
-              width:      `${farmProgress}%`,
-              background: farmReady ? "linear-gradient(90deg,#ffbe00,#f59e0b)"
-                                    : "linear-gradient(90deg,#4ade80,#22d3ee)",
-              boxShadow:  isFarming ? "0 0 6px rgba(74,222,128,0.4)" : "none",
+              width:`${farmProgress}%`,
+              background:farmReady?"linear-gradient(90deg,#ffbe00,#f59e0b)":"linear-gradient(90deg,#4ade80,#22d3ee)",
+              boxShadow:isFarming?"0 0 6px rgba(74,222,128,0.4)":"none",
             }}/>
           </div>
           {farmReady ? (
             <button className="hp-farm-btn claim" onClick={handleFarmClaim} disabled={farmClaiming}>
-              {farmClaiming
-                ? <span className="hp-dots" style={{ color: "#1a0800" }}><span/><span/><span/></span>
-                : "🚜 CLAIM NOW"}
+              {farmClaiming?<span className="hp-dots" style={{color:"#1a0800"}}><span/><span/><span/></span>:"🚜 CLAIM NOW"}
             </button>
           ) : isFarming ? (
-            <button className="hp-farm-btn wait" disabled>
-              🌾 FARMING... {farmTimeLeft}
-            </button>
+            <button className="hp-farm-btn wait" disabled>🌾 FARMING... {farmTimeLeft}</button>
           ) : (
             <button className="hp-farm-btn start" onClick={handleFarmStart} disabled={farmClaiming}>
-              {farmClaiming
-                ? <span className="hp-dots" style={{ color: "#001a0a" }}><span/><span/><span/></span>
-                : "🌾 START FARMING"}
+              {farmClaiming?<span className="hp-dots" style={{color:"#001a0a"}}><span/><span/><span/></span>:"🌾 START FARMING"}
             </button>
           )}
         </div>
@@ -854,83 +792,81 @@ export default function HomePage() {
         {/* WATCH ADS */}
         <div className="hp-ad-card gold">
           <div className="hp-ad-top">
-            <div className="hp-ad-icon" style={{
-              background: "rgba(255,190,0,0.1)",
-              border: "1px solid rgba(255,190,0,0.25)",
-            }}>🎬</div>
+            <div className="hp-ad-icon" style={{background:"rgba(255,190,0,0.1)",border:"1px solid rgba(255,190,0,0.25)"}}>🎬</div>
             <div className="hp-ad-info">
               <div className="hp-ad-title">WATCH ADS</div>
-              <div className="hp-ad-sub">
-                {adsToday >= AD_MAX_PER_DAY
-                  ? "✅ Daily limit reached"
-                  : `${adsToday} / ${AD_MAX_PER_DAY} today`}
+              <div className={`hp-ad-sub ${hourlyHit&&!dailyHit?"warn":""}`}>{adSubLabel}</div>
+            </div>
+            <div className="hp-ad-badge" style={{color:"#ffbe00",background:"rgba(255,190,0,0.08)",border:"1px solid rgba(255,190,0,0.2)"}}>
+              +{AD_REWARD} PTS
+            </div>
+          </div>
+
+          {/* Dual progress bars */}
+          <div className="hp-ad-limits">
+            <div className="hp-ad-limit-block">
+              <div className="hp-ad-limit-label">
+                <span>DAILY</span>
+                <span>{adsToday}/{AD_MAX_PER_DAY}</span>
+              </div>
+              <div className="hp-ad-prog-track">
+                <div className="hp-ad-prog-fill" style={{
+                  width:`${(adsToday/AD_MAX_PER_DAY)*100}%`,
+                  background:"linear-gradient(90deg,#ffbe00,#f59e0b)",
+                }}/>
               </div>
             </div>
-            <div className="hp-ad-badge" style={{
-              color: "#ffbe00",
-              background: "rgba(255,190,0,0.08)",
-              border: "1px solid rgba(255,190,0,0.2)",
-            }}>+50 PTS</div>
+            <div className="hp-ad-limit-block">
+              <div className="hp-ad-limit-label">
+                <span>HOURLY</span>
+                <span>{adsThisHour}/{AD_MAX_PER_HOUR}</span>
+              </div>
+              <div className="hp-ad-prog-track">
+                <div className="hp-ad-prog-fill" style={{
+                  width:`${(adsThisHour/AD_MAX_PER_HOUR)*100}%`,
+                  background: hourlyHit ? "linear-gradient(90deg,#ef4444,#dc2626)" : "linear-gradient(90deg,#22d3ee,#0891b2)",
+                }}/>
+              </div>
+            </div>
           </div>
-          <div className="hp-ad-prog-track">
-            <div className="hp-ad-prog-fill" style={{
-              width: `${(adsToday / AD_MAX_PER_DAY) * 100}%`,
-              background: "linear-gradient(90deg,#ffbe00,#f59e0b)",
-            }}/>
-          </div>
+
           {adRewarding && (
             <div className="hp-ad-rewarding">
               <div className="hp-ad-rewarding-spin"/>
               Adding coins...
             </div>
           )}
+
           <button
-            className={`hp-ad-btn ${adsToday >= AD_MAX_PER_DAY || adCooldown > 0 ? "ghost" : "gold-btn"}`}
+            className={`hp-ad-btn ${adDisabled ? "ghost" : "gold-btn"}`}
             onClick={handleWatchAd}
-            disabled={adLoading || adRewarding || adCooldown > 0 || adsToday >= AD_MAX_PER_DAY}
+            disabled={adDisabled}
           >
             {adLoading || adRewarding ? (
-              <span className="hp-dots" style={{ color: adRewarding ? "#ffbe00" : "#1a0800" }}><span/><span/><span/></span>
-            ) : adsToday >= AD_MAX_PER_DAY ? (
-              "✅ COME BACK TOMORROW"
-            ) : adCooldown > 0 ? (
-              <span className="hp-cd-txt">
-                ⏳ {adsToday === 0 ? `READY IN ${adCooldown}s` : `NEXT AD IN ${adCooldown}s`}
-              </span>
-            ) : (
-              "🎬  WATCH AD  +50 PTS"
-            )}
+              <span className="hp-dots" style={{color:adRewarding?"#ffbe00":"#1a0800"}}><span/><span/><span/></span>
+            ) : dailyHit ? "✅ COME BACK TOMORROW"
+            : hourlyHit ? "⏳ HOURLY LIMIT — TRY IN 1 HR"
+            : adCooldown > 0 ? (
+              <span className="hp-cd-txt">⏳ {adsToday===0?`READY IN ${adCooldown}s`:`NEXT AD IN ${adCooldown}s`}</span>
+            ) : "🎬  WATCH AD  +50 PTS"}
           </button>
         </div>
 
         {/* TABS */}
         <div className="hp-tabs">
-          <button
-            className={`hp-tab ${activeTab === "earn" ? "active" : ""}`}
-            onClick={() => setActiveTab("earn")}
-          >Earn</button>
-          <button
-            className={`hp-tab ${activeTab === "history" ? "active" : ""}`}
-            onClick={() => setActiveTab("history")}
-          >History</button>
+          <button className={`hp-tab ${activeTab==="earn"?"active":""}`} onClick={()=>setActiveTab("earn")}>Earn</button>
+          <button className={`hp-tab ${activeTab==="history"?"active":""}`} onClick={()=>setActiveTab("history")}>History</button>
         </div>
 
-        {/* EARN TAB */}
         {activeTab === "earn" && (
           <div>
-            <div style={{
-              textAlign: "center", padding: "14px 0 12px",
-              fontFamily: "'Orbitron',monospace", fontSize: 9,
-              letterSpacing: "3px", color: "rgba(255,255,255,0.1)",
-              textTransform: "uppercase",
-            }}>
+            <div style={{textAlign:"center",padding:"14px 0 12px",fontFamily:"'Orbitron',monospace",fontSize:9,letterSpacing:"3px",color:"rgba(255,255,255,0.1)",textTransform:"uppercase"}}>
               ✦ More Ways to Earn ✦
             </div>
             <AdsgramTask blockId="task-25198"/>
           </div>
         )}
 
-        {/* HISTORY TAB */}
         {activeTab === "history" && (
           <div>
             {transactions.length === 0 ? (

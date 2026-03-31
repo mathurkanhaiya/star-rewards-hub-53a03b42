@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import { getTransactions } from "@/lib/api";
+import { getTransactions, logAdWatch } from "@/lib/api";
 import { useRewardedAd } from "@/hooks/useAdsgram";
 import { supabase } from "@/integrations/supabase/client";
 import AdsgramTask from "@/components/AdsgramTask";
@@ -48,6 +48,7 @@ function lsSet(key: string, val: string) {
 function lsRemove(key: string) {
   try { localStorage.removeItem(key); } catch {}
 }
+
 function saveBoost(key: string, expiresAt: number) { lsSet(key, String(expiresAt)); }
 function loadBoost(key: string): number {
   const v = lsGet(key);
@@ -62,13 +63,12 @@ const REGEN_PER_SEC     = 50 / 3600;
 const X2_DURATION_SEC   = 10;
 const FAST_DURATION_SEC = 60;
 const FAST_REGEN_MULT   = 2;
-const FARM_DURATION_MS  = 30 * 60 * 1000;
+const FARM_DURATION_MS  = 15 * 60 * 1000;
 const FARM_REWARD       = 100;
-const AD_MAX_PER_DAY    = 50;   // ← 50/day
-const AD_MAX_PER_HOUR   = 10;   // ← 10/hour
+const AD_MAX_PER_DAY    = 50;
 const AD_REWARD         = 50;
-const AD_COOLDOWN_SEC   = 5;
-const AD_INIT_DELAY_SEC = 5;
+const AD_COOLDOWN_SEC   = 10;
+const AD_INIT_DELAY_SEC = 10;
 const DROP_COOLDOWN_SEC = 5;
 
 const DAILY_DROP = [
@@ -83,6 +83,7 @@ const DAILY_DROP = [
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&display=swap');
+
 @keyframes hpShine    { 0%{left:-100%} 40%,100%{left:150%} }
 @keyframes hpDot      { 0%,80%,100%{transform:scale(0.5);opacity:0.4} 40%{transform:scale(1);opacity:1} }
 @keyframes hpFadeIn   { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
@@ -98,12 +99,11 @@ const CSS = `
 @keyframes hpFloatPts { 0%{opacity:1;transform:translateY(0) scale(1.1)} 100%{opacity:0;transform:translateY(-70px) scale(0.7)} }
 @keyframes hpEPulse   { 0%,100%{opacity:0.6} 50%{opacity:1} }
 @keyframes hpSpin     { to{transform:rotate(360deg)} }
+
 .hp-root { font-family:'Rajdhani',sans-serif; padding:0 16px 112px; color:#fff; min-height:100vh; }
+
 .hp-msg { display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 16px; border-radius:13px; margin-bottom:12px; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.2); font-family:'Orbitron',monospace; font-size:10px; font-weight:700; color:#4ade80; letter-spacing:1px; animation:hpMsgIn 0.3s ease; }
-.hp-msg.error { background:rgba(239,68,68,0.08); border-color:rgba(239,68,68,0.25); color:#ef4444; }
-.hp-msg.info  { background:rgba(34,211,238,0.08); border-color:rgba(34,211,238,0.2); color:#22d3ee; }
-.hp-ad-rewarding { display:flex; align-items:center; justify-content:center; gap:8px; padding:11px 0 2px; font-family:'Orbitron',monospace; font-size:10px; letter-spacing:2px; color:rgba(255,190,0,0.7); }
-.hp-ad-rewarding-spin { width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,190,0,0.2); border-top:2px solid #ffbe00; animation:hpSpin 0.7s linear infinite; flex-shrink:0; }
+
 .hp-tap-card { background:rgba(255,255,255,0.02); border:1px solid rgba(255,190,0,0.15); border-radius:22px; padding:16px 16px 14px; margin-bottom:12px; position:relative; overflow:hidden; animation:hpFadeIn 0.4s ease; }
 .hp-tap-card::before { content:''; position:absolute; top:0; left:10%; right:10%; height:1px; background:linear-gradient(90deg,transparent,rgba(255,190,0,0.45),transparent); }
 .hp-tap-card::after  { content:''; position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,0.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.012) 1px,transparent 1px); background-size:28px 28px; pointer-events:none; border-radius:22px; }
@@ -144,6 +144,7 @@ const CSS = `
 .hp-boost-label { font-family:'Orbitron',monospace; font-size:8px; font-weight:700; letter-spacing:1px; }
 .hp-boost-sub   { font-size:9px; color:rgba(255,255,255,0.3); letter-spacing:0.5px; margin-top:1px; }
 .hp-boost-timer { font-family:'Orbitron',monospace; font-size:9px; font-weight:700; margin-top:2px; animation:hpCdFlash 1s ease-in-out infinite; }
+
 .hp-drop-card { background:rgba(255,255,255,0.02); border:1px solid rgba(255,190,0,0.15); border-radius:22px; padding:16px; margin-bottom:12px; position:relative; overflow:hidden; animation:hpFadeIn 0.4s 0.05s ease both; }
 .hp-drop-card::before { content:''; position:absolute; top:0; left:10%; right:10%; height:1px; background:linear-gradient(90deg,transparent,rgba(255,190,0,0.4),transparent); }
 .hp-drop-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
@@ -171,6 +172,7 @@ const CSS = `
 .hp-drop-btn.cooldown::after { display:none; }
 .hp-drop-btn.claimed  { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:rgba(255,255,255,0.3); cursor:not-allowed; }
 .hp-drop-btn.claimed::after { display:none; }
+
 .hp-farm-card { background:rgba(255,255,255,0.02); border:1px solid rgba(74,222,128,0.15); border-radius:22px; padding:16px; margin-bottom:12px; position:relative; overflow:hidden; animation:hpFadeIn 0.4s 0.1s ease both; }
 .hp-farm-card::before { content:''; position:absolute; top:0; left:10%; right:10%; height:1px; background:linear-gradient(90deg,transparent,rgba(74,222,128,0.4),transparent); }
 .hp-farm-card.farming { animation:hpFarmPulse 2.5s ease-in-out infinite; }
@@ -191,6 +193,7 @@ const CSS = `
 .hp-farm-btn.claim { background:linear-gradient(135deg,#ffbe00,#f59e0b); color:#1a0800; box-shadow:0 4px 16px rgba(255,190,0,0.3); }
 .hp-farm-btn.wait  { background:rgba(255,255,255,0.03); border:1px solid rgba(74,222,128,0.12); color:rgba(74,222,128,0.35); cursor:not-allowed; }
 .hp-farm-btn.wait::after { display:none; }
+
 .hp-ad-card { background:rgba(255,255,255,0.02); border-radius:22px; padding:16px; margin-bottom:12px; position:relative; overflow:hidden; animation:hpFadeIn 0.4s 0.15s ease both; }
 .hp-ad-card.gold   { border:1px solid rgba(255,190,0,0.15); }
 .hp-ad-card.gold::before   { content:''; position:absolute; top:0; left:10%; right:10%; height:1px; background:linear-gradient(90deg,transparent,rgba(255,190,0,0.4),transparent); }
@@ -199,7 +202,6 @@ const CSS = `
 .hp-ad-info  { flex:1; min-width:0; }
 .hp-ad-title { font-family:'Orbitron',monospace; font-size:11px; font-weight:700; letter-spacing:2px; color:rgba(255,255,255,0.8); margin-bottom:2px; }
 .hp-ad-sub   { font-size:12px; color:rgba(255,255,255,0.3); letter-spacing:0.5px; }
-.hp-ad-sub.warn { color:#f97316; }
 .hp-ad-badge { font-family:'Orbitron',monospace; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; flex-shrink:0; }
 .hp-ad-prog-track { height:4px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden; margin-bottom:11px; }
 .hp-ad-prog-fill  { height:100%; border-radius:2px; transition:width 0.4s; }
@@ -211,9 +213,11 @@ const CSS = `
 .hp-ad-btn.ghost { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.35); box-shadow:none; }
 .hp-ad-btn.ghost::after { display:none; }
 .hp-cd-txt { font-family:'Orbitron',monospace; font-size:11px; letter-spacing:2px; animation:hpCdFlash 1s ease-in-out infinite; }
+
 .hp-tabs { display:flex; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:4px; gap:4px; margin-bottom:12px; }
 .hp-tab  { flex:1; padding:8px; border-radius:10px; border:none; background:none; font-family:'Orbitron',monospace; font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.25); cursor:pointer; transition:background 0.2s,color 0.2s; }
 .hp-tab.active { background:#ffbe00; color:#1a0800; box-shadow:0 2px 12px rgba(255,190,0,0.3); }
+
 .hp-tx-empty { text-align:center; padding:28px 0; font-family:'Orbitron',monospace; font-size:10px; letter-spacing:3px; color:rgba(255,255,255,0.15); text-transform:uppercase; }
 .hp-tx { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:14px; padding:11px 14px; margin-bottom:7px; }
 .hp-tx-icon { width:36px; height:36px; border-radius:10px; background:rgba(255,190,0,0.08); border:1px solid rgba(255,190,0,0.15); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
@@ -227,11 +231,10 @@ const CSS = `
 
 export default function HomePage() {
   const { user, refreshBalance } = useApp();
+
   const [transactions,  setTransactions]  = useState<Transaction[]>([]);
   const [activeTab,     setActiveTab]     = useState<"earn" | "history">("earn");
   const [message,       setMessage]       = useState("");
-  const [msgType,       setMsgType]       = useState<"ok"|"error"|"info">("ok");
-  const [adRewarding,   setAdRewarding]   = useState(false);
   const tapBtnRef = useRef<HTMLButtonElement>(null);
 
   const [energy, setEnergy] = useState<number>(() => {
@@ -258,7 +261,7 @@ export default function HomePage() {
 
   useEffect(() => { fastActiveRef.current = fastActive; }, [fastActive]);
   useEffect(() => { x2ActiveRef.current   = x2Active;   }, [x2Active]);
-  useEffect(() => { energyRef.current     = energy;     }, [energy]);
+  useEffect(() => { energyRef.current     = energy;      }, [energy]);
 
   const [floatPts, setFloatPts] = useState<FloatPt[]>([]);
 
@@ -280,19 +283,17 @@ export default function HomePage() {
   const [dropCooldown,     setDropCooldown]     = useState(DROP_COOLDOWN_SEC);
   const dropClaimingRef = useRef(false);
 
-  const [adsToday,    setAdsToday]    = useState(0);
-  const [adsThisHour, setAdsThisHour] = useState(0); // ← hourly count
-  const [adCooldown,  setAdCooldown]  = useState(AD_INIT_DELAY_SEC);
-  const [adLoading,   setAdLoading]   = useState(false);
+  const [adsToday,   setAdsToday]   = useState(0);
+  const [adCooldown, setAdCooldown] = useState(AD_INIT_DELAY_SEC);
+  const [adLoading,  setAdLoading]  = useState(false);
   const isAdRunning = useRef(false);
 
   const pendingTapPts = useRef(0);
   const tapFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const msgTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showMsg = useCallback((text: string, type: "ok"|"error"|"info" = "ok") => {
+  const msgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showMsg = useCallback((text: string) => {
     setMessage(text);
-    setMsgType(type);
     if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
     msgTimerRef.current = setTimeout(() => setMessage(""), 2500);
   }, []);
@@ -303,23 +304,17 @@ export default function HomePage() {
     setTransactions(data ?? []);
   }, [user]);
 
-  /* ── Count from transactions — daily + hourly ── */
   const loadTodayAds = useCallback(async () => {
     if (!user) return;
-    const dayStart  = new Date(); dayStart.setUTCHours(0,0,0,0);
-    const hourStart = new Date(Date.now() - 60 * 60 * 1000);
-    const [dayRes, hourRes] = await Promise.all([
-      supabase.from("transactions")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id).eq("type", "ad_watch")
-        .gte("created_at", dayStart.toISOString()),
-      supabase.from("transactions")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id).eq("type", "ad_watch")
-        .gte("created_at", hourStart.toISOString()),
-    ]);
-    setAdsToday(dayRes.count ?? 0);
-    setAdsThisHour(hourRes.count ?? 0);
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const { count } = await supabase
+      .from("ad_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("ad_type", "ad_watch")
+      .gte("created_at", start.toISOString());
+    setAdsToday(count ?? 0);
   }, [user]);
 
   const loadDropState = useCallback(async () => {
@@ -327,14 +322,19 @@ export default function HomePage() {
     setDropLoading(true);
     try {
       const today = new Date().toISOString().split("T")[0];
+
       const { data: todayClaim } = await supabase
-        .from("daily_claims").select("id")
-        .eq("user_id", user.id).eq("claim_date", today).maybeSingle();
+        .from("daily_claims")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("claim_date", today)
+        .maybeSingle();
       const claimedToday = !!todayClaim;
       setDropClaimedToday(claimedToday);
 
       const { data: claims } = await supabase
-        .from("daily_claims").select("claim_date")
+        .from("daily_claims")
+        .select("claim_date")
         .eq("user_id", user.id)
         .order("claim_date", { ascending: false })
         .limit(8);
@@ -342,7 +342,7 @@ export default function HomePage() {
       if (!claims?.length) { setDropStreak(0); return; }
 
       let streak = 0;
-      const now = new Date(); now.setUTCHours(0,0,0,0);
+      const now = new Date(); now.setUTCHours(0, 0, 0, 0);
       const startOffset = claimedToday ? 0 : 1;
       for (let i = 0; i < claims.length; i++) {
         const expected = new Date(now);
@@ -363,12 +363,6 @@ export default function HomePage() {
     loadDropState();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── Refresh hourly count every 5 min ── */
-  useEffect(() => {
-    const t = setInterval(() => loadTodayAds(), 5 * 60 * 1000);
-    return () => clearInterval(t);
-  }, [loadTodayAds]);
-
   useEffect(() => {
     const tick = setInterval(() => {
       setEnergy(prev => {
@@ -379,23 +373,37 @@ export default function HomePage() {
         lsSet("lastEnergyTime", String(Date.now()));
         return next;
       });
-      setX2SecsLeft(p => { const n = Math.max(0,p-1); if(p>0&&n===0) lsRemove("boostX2Exp"); return n; });
-      setFastSecsLeft(p => { const n = Math.max(0,p-1); if(p>0&&n===0) lsRemove("boostFastExp"); return n; });
+
+      setX2SecsLeft(p => {
+        const n = Math.max(0, p - 1);
+        if (p > 0 && n === 0) lsRemove("boostX2Exp");
+        return n;
+      });
+      setFastSecsLeft(p => {
+        const n = Math.max(0, p - 1);
+        if (p > 0 && n === 0) lsRemove("boostFastExp");
+        return n;
+      });
+
       setAdCooldown(p => Math.max(0, p - 1));
       setDropCooldown(p => Math.max(0, p - 1));
+
       const fs = farmStartRef.current;
       if (fs && !farmReadyRef.current) {
         const elapsed = Date.now() - fs;
-        const pct = Math.min(100, (elapsed / FARM_DURATION_MS) * 100);
+        const pct     = Math.min(100, (elapsed / FARM_DURATION_MS) * 100);
         setFarmProgress(pct);
         if (elapsed >= FARM_DURATION_MS) {
-          setFarmReady(true); farmReadyRef.current = true; setFarmTimeLeft("Ready!");
+          setFarmReady(true);
+          farmReadyRef.current = true;
+          setFarmTimeLeft("Ready!");
         } else {
           const rem = Math.ceil((FARM_DURATION_MS - elapsed) / 1000);
-          setFarmTimeLeft(`${Math.floor(rem/60)}:${(rem%60).toString().padStart(2,"0")}`);
+          setFarmTimeLeft(`${Math.floor(rem / 60)}:${(rem % 60).toString().padStart(2, "0")}`);
         }
       }
     }, 1000);
+
     return () => clearInterval(tick);
   }, []);
 
@@ -403,7 +411,11 @@ export default function HomePage() {
     if (!user) return;
     try {
       const { data: bal } = await supabase
-        .from("balances").select("points,total_earned").eq("user_id", user.id).single();
+        .from("balances")
+        .select("points,total_earned")
+        .eq("user_id", user.id)
+        .single();
+
       if (bal) {
         await Promise.all([
           supabase.from("balances").update({
@@ -415,7 +427,9 @@ export default function HomePage() {
           }),
         ]);
       }
-    } catch (err) { console.error("creditBalance:", err); }
+    } catch (err) {
+      console.error("creditBalance:", err);
+    }
     refreshBalance();
   }, [user, refreshBalance]);
 
@@ -425,7 +439,11 @@ export default function HomePage() {
     pendingTapPts.current = 0;
     try {
       const { data: bal } = await supabase
-        .from("balances").select("points,total_earned").eq("user_id", user.id).single();
+        .from("balances")
+        .select("points,total_earned")
+        .eq("user_id", user.id)
+        .single();
+
       if (bal) {
         await Promise.all([
           supabase.from("balances").update({
@@ -433,7 +451,9 @@ export default function HomePage() {
             total_earned: bal.total_earned + pts,
           }).eq("user_id", user.id),
           supabase.from("transactions").insert({
-            user_id: user.id, type: "tap_earn", points: pts,
+            user_id: user.id,
+            type: "tap_earn",
+            points: pts,
             description: `👆 Tap (${pts} pts)`,
           }),
         ]);
@@ -456,19 +476,23 @@ export default function HomePage() {
   const handleTap = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     if (!user || energyRef.current < 1) return;
     triggerHaptic("impact");
+
     const pts = x2ActiveRef.current ? 2 : 1;
+
     setEnergy(prev => {
       const next = Math.max(0, prev - 1);
       lsSet("energy", String(next));
       lsSet("lastEnergyTime", String(Date.now()));
       return next;
     });
+
     const rect = tapBtnRef.current?.getBoundingClientRect();
     const id   = performance.now() + Math.random();
     const x    = rect ? e.clientX - rect.left - 14 : 50;
     const y    = rect ? e.clientY - rect.top  - 30 : 20;
     setFloatPts(p => [...p, { id, x, y, val: pts }]);
     setTimeout(() => setFloatPts(p => p.filter(f => f.id !== id)), 900);
+
     pendingTapPts.current += pts;
     if (tapFlushTimer.current) clearTimeout(tapFlushTimer.current);
     tapFlushTimer.current = setTimeout(flushTaps, 1500);
@@ -498,20 +522,27 @@ export default function HomePage() {
     setDropClaiming(true);
     try {
       const today = new Date().toISOString().split("T")[0];
+
       const { data: existing } = await supabase
-        .from("daily_claims").select("id")
-        .eq("user_id", user.id).eq("claim_date", today).maybeSingle();
+        .from("daily_claims")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("claim_date", today)
+        .maybeSingle();
       if (existing) { setDropClaimedToday(true); return; }
+
       const dayIndex = Math.min(dropStreak, 6);
       const reward   = DAILY_DROP[dayIndex].pts;
+
       const { error } = await supabase.from("daily_claims").insert({
         user_id: user.id, claim_date: today, claimed_at: new Date().toISOString(),
       });
       if (error) { setDropClaimedToday(true); return; }
-      await creditBalance(reward, "daily_drop", `🎁 Daily Drop Day ${dayIndex+1}: +${reward} pts`);
+
+      await creditBalance(reward, "daily_drop", `🎁 Daily Drop Day ${dayIndex + 1}: +${reward} pts`);
       setDropClaimedToday(true);
       setDropStreak(p => p + 1);
-      showMsg(`+${reward} pts 🎁 Day ${dayIndex+1}!`);
+      showMsg(`+${reward} pts 🎁 Day ${dayIndex + 1}!`);
       loadTransactions();
     } catch {
       showMsg("Error claiming. Try again.");
@@ -524,8 +555,11 @@ export default function HomePage() {
 
   const onFarmStartReward = useCallback(() => {
     const now = Date.now();
-    farmStartRef.current = now; farmReadyRef.current = false;
-    setFarmStart(now); setFarmProgress(0); setFarmReady(false);
+    farmStartRef.current = now;
+    farmReadyRef.current = false;
+    setFarmStart(now);
+    setFarmProgress(0);
+    setFarmReady(false);
     lsSet("farmStart", String(now));
     triggerHaptic("impact");
     showMsg("🌾 Farming started!");
@@ -536,8 +570,12 @@ export default function HomePage() {
     if (!user) return;
     triggerHaptic("success");
     await creditBalance(FARM_REWARD, "farm_claim", `🌾 Farm: +${FARM_REWARD} pts`);
-    farmStartRef.current = null; farmReadyRef.current = false;
-    setFarmStart(null); setFarmProgress(0); setFarmReady(false); setFarmTimeLeft("");
+    farmStartRef.current = null;
+    farmReadyRef.current = false;
+    setFarmStart(null);
+    setFarmProgress(0);
+    setFarmReady(false);
+    setFarmTimeLeft("");
     lsRemove("farmStart");
     showMsg(`+${FARM_REWARD} pts 🌾`);
     loadTransactions();
@@ -558,40 +596,29 @@ export default function HomePage() {
     setFarmClaiming(false);
   }, [farmReady, farmClaiming, showFarmClaimAd, showMsg]);
 
-  /* ── AD REWARD — one transaction, no logAdWatch ── */
   const onAdReward = useCallback(async () => {
     if (!user) return;
-    setAdRewarding(true);
-    try {
-      await creditBalance(AD_REWARD, "ad_watch", `🎬 Ad Watch: +${AD_REWARD} pts`);
-      triggerHaptic("success");
-      refreshBalance();
-      setAdsToday(p => p + 1);
-      setAdsThisHour(p => p + 1); // ← increment hourly
-      setAdCooldown(AD_COOLDOWN_SEC);
-      showMsg(`+${AD_REWARD} pts added! 🎬`, "ok");
-      loadTransactions();
-    } catch {
-      showMsg("Reward failed. Try again.", "error");
-    } finally {
-      setAdRewarding(false);
-    }
-  }, [user, creditBalance, refreshBalance, showMsg, loadTransactions]);
+    triggerHaptic("success");
+    // logAdWatch handles both the ad_logs entry AND balance/transaction update.
+    // Do NOT also call creditBalance — that would double-credit and create a duplicate row.
+    await logAdWatch(user.id, "ad_watch", AD_REWARD);
+    refreshBalance();
+    setAdsToday(p => p + 1);
+    setAdCooldown(AD_COOLDOWN_SEC);
+    showMsg(`+${AD_REWARD} pts 🎬`);
+    loadTransactions();
+  }, [user, refreshBalance, showMsg, loadTransactions]);
   const { showAd: showMainAd } = useRewardedAd(onAdReward);
 
   const handleWatchAd = useCallback(async () => {
     if (!user || isAdRunning.current || adCooldown > 0 || adsToday >= AD_MAX_PER_DAY) return;
-    if (adsThisHour >= AD_MAX_PER_HOUR) {
-      showMsg("Hourly limit reached. Try again in 1 hour.", "info");
-      return;
-    }
     isAdRunning.current = true;
     triggerHaptic("impact");
     setAdLoading(true);
-    try { await showMainAd(); } catch { showMsg("Ad failed. Try again.", "error"); }
+    try { await showMainAd(); } catch { showMsg("Ad failed."); }
     setAdLoading(false);
     isAdRunning.current = false;
-  }, [user, adCooldown, adsToday, adsThisHour, showMainAd, showMsg]);
+  }, [user, adCooldown, adsToday, showMainAd, showMsg]);
 
   const energyPct   = (energy / MAX_ENERGY) * 100;
   const energyColor = energyPct > 50 ? "#ffbe00" : energyPct > 20 ? "#f97316" : "#ef4444";
@@ -601,26 +628,12 @@ export default function HomePage() {
   const dropBtnClass    = dropClaimedToday ? "claimed"
     : dropCooldown > 0 || dropLoading ? "cooldown" : "claim";
 
-  const hourlyHit  = adsThisHour >= AD_MAX_PER_HOUR;
-  const dailyHit   = adsToday    >= AD_MAX_PER_DAY;
-  const adDisabled = adLoading || adRewarding || adCooldown > 0 || dailyHit || hourlyHit;
-
-  const adSubLabel = dailyHit
-    ? "✅ Daily limit reached"
-    : hourlyHit
-    ? `⏳ Hourly limit — ${adsThisHour}/${AD_MAX_PER_HOUR} this hour`
-    : `${adsToday}/${AD_MAX_PER_DAY} today · ${adsThisHour}/${AD_MAX_PER_HOUR} this hr`;
-
   return (
     <>
       <style>{CSS}</style>
       <div className="hp-root">
 
-        {message && (
-          <div className={`hp-msg${msgType === "error" ? " error" : msgType === "info" ? " info" : ""}`}>
-            {msgType === "error" ? "⚠" : "✦"} {message}
-          </div>
-        )}
+        {message && <div className="hp-msg">✦ {message}</div>}
 
         {/* TAP TO EARN */}
         <div className="hp-tap-card">
@@ -635,12 +648,19 @@ export default function HomePage() {
               <div className="hp-tap-ripple"/>
               <div className="hp-tap-ripple"/>
               <div className="hp-tap-ripple"/>
-              <button ref={tapBtnRef} className="hp-tap-btn" onClick={handleTap} disabled={energy < 1}>
+              <button
+                ref={tapBtnRef}
+                className="hp-tap-btn"
+                onClick={handleTap}
+                disabled={energy < 1}
+              >
                 <span className="hp-tap-btn-emoji">🪙</span>
                 <span className="hp-tap-btn-sub">{x2Active ? "+2 PTS" : "+1 PT"}</span>
               </button>
               {floatPts.map(f => (
-                <div key={f.id} className="hp-float-pts" style={{ left: f.x, top: f.y }}>+{f.val}</div>
+                <div key={f.id} className="hp-float-pts" style={{ left: f.x, top: f.y }}>
+                  +{f.val}
+                </div>
               ))}
             </div>
             <div className="hp-energy-wrap">
@@ -659,15 +679,20 @@ export default function HomePage() {
                   boxShadow: `0 0 7px ${energyColor}50`,
                 }}/>
                 <div className="hp-energy-segments">
-                  {Array.from({ length: 9 }).map((_, i) => <div key={i} className="hp-energy-seg"/>)}
+                  {Array.from({ length: 9 }).map((_, i) => (
+                    <div key={i} className="hp-energy-seg"/>
+                  ))}
                 </div>
               </div>
               {energy < 1 && <div className="hp-regen-label">⏳ Recharging...</div>}
             </div>
           </div>
           <div className="hp-boost-row">
-            <button className={`hp-boost-btn x2 ${x2Active ? "on" : ""}`}
-              onClick={() => { if (!x2Active) showX2Ad(); }} disabled={x2Active}>
+            <button
+              className={`hp-boost-btn x2 ${x2Active ? "on" : ""}`}
+              onClick={() => { if (!x2Active) showX2Ad(); }}
+              disabled={x2Active}
+            >
               <div className="hp-boost-row-inner">
                 <span className="hp-boost-icon">⚡</span>
                 <span className="hp-boost-label">2× TAP</span>
@@ -676,8 +701,11 @@ export default function HomePage() {
                 ? <div className="hp-boost-timer" style={{ color: "#fbbf24" }}>{fmtBoost(x2SecsLeft)}</div>
                 : <div className="hp-boost-sub">Watch ad • 10s</div>}
             </button>
-            <button className={`hp-boost-btn fast ${fastActive ? "on" : ""}`}
-              onClick={() => { if (!fastActive) showFastAd(); }} disabled={fastActive}>
+            <button
+              className={`hp-boost-btn fast ${fastActive ? "on" : ""}`}
+              onClick={() => { if (!fastActive) showFastAd(); }}
+              disabled={fastActive}
+            >
               <div className="hp-boost-row-inner">
                 <span className="hp-boost-icon">🔋</span>
                 <span className="hp-boost-label">FAST ×2</span>
@@ -713,10 +741,19 @@ export default function HomePage() {
                 const locked    = i > todayDayIdx;
                 const isJackpot = i === 6;
                 return (
-                  <div key={d.day}
-                    className={["hp-drop-day",claimed?"claimed":"",locked?"locked":"",isJackpot?"jackpot":""].join(" ").trim()}
-                    style={current ? { borderColor: d.color, boxShadow: `0 0 12px ${d.color}30` }
-                      : isJackpot && !locked ? { borderColor: "#a78bfa50" } : undefined}
+                  <div
+                    key={d.day}
+                    className={[
+                      "hp-drop-day",
+                      claimed   ? "claimed" : "",
+                      locked    ? "locked"  : "",
+                      isJackpot ? "jackpot" : "",
+                    ].join(" ").trim()}
+                    style={
+                      current   ? { borderColor: d.color, boxShadow: `0 0 12px ${d.color}30` }
+                      : isJackpot && !locked ? { borderColor: "#a78bfa50" }
+                      : undefined
+                    }
                   >
                     {claimed && <div className="hp-drop-check">✓</div>}
                     <div className="hp-drop-pts" style={{
@@ -728,13 +765,22 @@ export default function HomePage() {
               })}
             </div>
           )}
-          <button className={`hp-drop-btn ${dropBtnClass}`} onClick={handleClaimDrop} disabled={dropBtnDisabled}>
+          <button
+            className={`hp-drop-btn ${dropBtnClass}`}
+            onClick={handleClaimDrop}
+            disabled={dropBtnDisabled}
+          >
             {dropClaiming ? (
               <span className="hp-dots" style={{ color: "#001a0a" }}><span/><span/><span/></span>
-            ) : dropClaimedToday ? "✅  Claimed Today!"
-            : dropLoading || dropCooldown > 0 ? (
-              <span className="hp-cd-txt">⏳ {dropLoading ? "Loading..." : `Available in ${dropCooldown}s`}</span>
-            ) : `🎁  CLAIM +${DAILY_DROP[todayDayIdx]?.pts ?? 100} PTS`}
+            ) : dropClaimedToday ? (
+              "✅  Claimed Today!"
+            ) : dropLoading || dropCooldown > 0 ? (
+              <span className="hp-cd-txt">
+                ⏳ {dropLoading ? "Loading..." : `Available in ${dropCooldown}s`}
+              </span>
+            ) : (
+              `🎁  CLAIM +${DAILY_DROP[todayDayIdx]?.pts ?? 100} PTS`
+            )}
           </button>
         </div>
 
@@ -745,7 +791,7 @@ export default function HomePage() {
             <div className="hp-farm-info">
               <div className="hp-farm-title">FARMING</div>
               <div className={`hp-farm-sub ${isFarming || farmReady ? "live" : ""}`}>
-                {farmReady ? "✦ Ready to claim!"
+                {farmReady    ? "✦ Ready to claim!"
                   : isFarming ? `⏱ ${farmTimeLeft} remaining`
                   : "Start Farming → 15 min → +100 pts"}
               </div>
@@ -754,24 +800,33 @@ export default function HomePage() {
           </div>
           <div className="hp-farm-prog-labels">
             <span>{farmReady ? "Complete!" : isFarming ? "Farming..." : "Idle"}</span>
-            <span style={{ color: farmReady ? "#ffbe00" : "#4ade80" }}>{Math.round(farmProgress)}%</span>
+            <span style={{ color: farmReady ? "#ffbe00" : "#4ade80" }}>
+              {Math.round(farmProgress)}%
+            </span>
           </div>
           <div className="hp-farm-track">
             <div className="hp-farm-fill" style={{
-              width: `${farmProgress}%`,
-              background: farmReady ? "linear-gradient(90deg,#ffbe00,#f59e0b)" : "linear-gradient(90deg,#4ade80,#22d3ee)",
-              boxShadow: isFarming ? "0 0 6px rgba(74,222,128,0.4)" : "none",
+              width:      `${farmProgress}%`,
+              background: farmReady ? "linear-gradient(90deg,#ffbe00,#f59e0b)"
+                                    : "linear-gradient(90deg,#4ade80,#22d3ee)",
+              boxShadow:  isFarming ? "0 0 6px rgba(74,222,128,0.4)" : "none",
             }}/>
           </div>
           {farmReady ? (
             <button className="hp-farm-btn claim" onClick={handleFarmClaim} disabled={farmClaiming}>
-              {farmClaiming ? <span className="hp-dots" style={{ color: "#1a0800" }}><span/><span/><span/></span> : "🚜 CLAIM NOW"}
+              {farmClaiming
+                ? <span className="hp-dots" style={{ color: "#1a0800" }}><span/><span/><span/></span>
+                : "🚜 CLAIM NOW"}
             </button>
           ) : isFarming ? (
-            <button className="hp-farm-btn wait" disabled>🌾 FARMING... {farmTimeLeft}</button>
+            <button className="hp-farm-btn wait" disabled>
+              🌾 FARMING... {farmTimeLeft}
+            </button>
           ) : (
             <button className="hp-farm-btn start" onClick={handleFarmStart} disabled={farmClaiming}>
-              {farmClaiming ? <span className="hp-dots" style={{ color: "#001a0a" }}><span/><span/><span/></span> : "🌾 START FARMING"}
+              {farmClaiming
+                ? <span className="hp-dots" style={{ color: "#001a0a" }}><span/><span/><span/></span>
+                : "🌾 START FARMING"}
             </button>
           )}
         </div>
@@ -779,14 +834,23 @@ export default function HomePage() {
         {/* WATCH ADS */}
         <div className="hp-ad-card gold">
           <div className="hp-ad-top">
-            <div className="hp-ad-icon" style={{ background: "rgba(255,190,0,0.1)", border: "1px solid rgba(255,190,0,0.25)" }}>🎬</div>
+            <div className="hp-ad-icon" style={{
+              background: "rgba(255,190,0,0.1)",
+              border: "1px solid rgba(255,190,0,0.25)",
+            }}>🎬</div>
             <div className="hp-ad-info">
               <div className="hp-ad-title">WATCH ADS</div>
-              <div className={`hp-ad-sub ${hourlyHit && !dailyHit ? "warn" : ""}`}>{adSubLabel}</div>
+              <div className="hp-ad-sub">
+                {adsToday >= AD_MAX_PER_DAY
+                  ? "✅ Daily limit reached"
+                  : `${adsToday} / ${AD_MAX_PER_DAY} today`}
+              </div>
             </div>
-            <div className="hp-ad-badge" style={{ color: "#ffbe00", background: "rgba(255,190,0,0.08)", border: "1px solid rgba(255,190,0,0.2)" }}>
-              +{AD_REWARD} PTS
-            </div>
+            <div className="hp-ad-badge" style={{
+              color: "#ffbe00",
+              background: "rgba(255,190,0,0.08)",
+              border: "1px solid rgba(255,190,0,0.2)",
+            }}>+100 PTS</div>
           </div>
           <div className="hp-ad-prog-track">
             <div className="hp-ad-prog-fill" style={{
@@ -794,37 +858,46 @@ export default function HomePage() {
               background: "linear-gradient(90deg,#ffbe00,#f59e0b)",
             }}/>
           </div>
-          {adRewarding && (
-            <div className="hp-ad-rewarding">
-              <div className="hp-ad-rewarding-spin"/>
-              Adding coins...
-            </div>
-          )}
           <button
-            className={`hp-ad-btn ${adDisabled ? "ghost" : "gold-btn"}`}
+            className={`hp-ad-btn ${adsToday >= AD_MAX_PER_DAY || adCooldown > 0 ? "ghost" : "gold-btn"}`}
             onClick={handleWatchAd}
-            disabled={adDisabled}
+            disabled={adLoading || adCooldown > 0 || adsToday >= AD_MAX_PER_DAY}
           >
-            {adLoading || adRewarding ? (
-              <span className="hp-dots" style={{ color: adRewarding ? "#ffbe00" : "#1a0800" }}><span/><span/><span/></span>
-            ) : dailyHit ? "✅ COME BACK TOMORROW"
-            : hourlyHit ? "⏳ HOURLY LIMIT — TRY IN 1 HR"
-            : adCooldown > 0 ? (
-              <span className="hp-cd-txt">⏳ {adsToday === 0 ? `READY IN ${adCooldown}s` : `NEXT AD IN ${adCooldown}s`}</span>
-            ) : "🎬  WATCH AD  +50 PTS"}
+            {adLoading ? (
+              <span className="hp-dots" style={{ color: "#1a0800" }}><span/><span/><span/></span>
+            ) : adsToday >= AD_MAX_PER_DAY ? (
+              "✅ COME BACK TOMORROW"
+            ) : adCooldown > 0 ? (
+              <span className="hp-cd-txt">
+                ⏳ {adsToday === 0 ? `READY IN ${adCooldown}s` : `NEXT AD IN ${adCooldown}s`}
+              </span>
+            ) : (
+              "🎬  WATCH AD  +100 PTS"
+            )}
           </button>
         </div>
 
         {/* TABS */}
         <div className="hp-tabs">
-          <button className={`hp-tab ${activeTab === "earn" ? "active" : ""}`} onClick={() => setActiveTab("earn")}>Earn</button>
-          <button className={`hp-tab ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}>History</button>
+          <button
+            className={`hp-tab ${activeTab === "earn" ? "active" : ""}`}
+            onClick={() => setActiveTab("earn")}
+          >Earn</button>
+          <button
+            className={`hp-tab ${activeTab === "history" ? "active" : ""}`}
+            onClick={() => setActiveTab("history")}
+          >History</button>
         </div>
 
         {/* EARN TAB */}
         {activeTab === "earn" && (
           <div>
-            <div style={{ textAlign: "center", padding: "14px 0 12px", fontFamily: "'Orbitron',monospace", fontSize: 9, letterSpacing: "3px", color: "rgba(255,255,255,0.1)", textTransform: "uppercase" }}>
+            <div style={{
+              textAlign: "center", padding: "14px 0 12px",
+              fontFamily: "'Orbitron',monospace", fontSize: 9,
+              letterSpacing: "3px", color: "rgba(255,255,255,0.1)",
+              textTransform: "uppercase",
+            }}>
               ✦ More Ways to Earn ✦
             </div>
             <AdsgramTask blockId="task-25198"/>

@@ -850,7 +850,7 @@ export default function HomePage() {
               color: "#ffbe00",
               background: "rgba(255,190,0,0.08)",
               border: "1px solid rgba(255,190,0,0.2)",
-            }}>+100 PTS</div>
+            }}>+50 PTS</div>
           </div>
           <div className="hp-ad-prog-track">
             <div className="hp-ad-prog-fill" style={{
@@ -872,7 +872,7 @@ export default function HomePage() {
                 ⏳ {adsToday === 0 ? `READY IN ${adCooldown}s` : `NEXT AD IN ${adCooldown}s`}
               </span>
             ) : (
-              "🎬  WATCH AD  +100 PTS"
+              "🎬  WATCH AD  +50 PTS"
             )}
           </button>
         </div>

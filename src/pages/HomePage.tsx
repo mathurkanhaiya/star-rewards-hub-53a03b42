@@ -375,23 +375,7 @@ export default function HomePage() {
   const creditBalance = useCallback(async (pts: number, type: string, desc: string) => {
     if (!user) return;
     try {
-      const { data: bal } = await supabase
-        .from("balances")
-        .select("points,total_earned")
-        .eq("user_id", user.id)
-        .single();
-
-      if (bal) {
-        await Promise.all([
-          supabase.from("balances").update({
-            points:       bal.points       + pts,
-            total_earned: bal.total_earned + pts,
-          }).eq("user_id", user.id),
-          supabase.from("transactions").insert({
-            user_id: user.id, type, points: pts, description: desc,
-          }),
-        ]);
-      }
+      await claimGameReward(type, pts, desc);
     } catch (err) {
       console.error("creditBalance:", err);
     }

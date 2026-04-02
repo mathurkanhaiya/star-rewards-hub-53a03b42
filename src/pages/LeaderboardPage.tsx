@@ -195,15 +195,16 @@ export default function LeaderboardPage() {
       leadersRef.current.forEach((l, i) => { prev[l.telegram_id] = i + 1; });
 
       const mapped: LeaderboardEntry[] = balances.map((b: any, i: number) => ({
-        id:           b.user_id,
-        user_id:      b.user_id,
-        telegram_id:  b.users?.telegram_id,
-        first_name:   b.users?.first_name || 'User',
-        username:     b.users?.username,
-        photo_url:    b.users?.photo_url,
-        total_points: b.points,
-        points:       b.points,
-        rank:         i + 1,
+        id:             b.user_id,
+        user_id:        b.user_id,
+        telegram_id:    b.users?.telegram_id,
+        first_name:     b.users?.first_name || 'User',
+        username:       b.users?.username,
+        photo_url:      b.users?.photo_url,
+        total_points:   b.points,
+        current_points: b.points,
+        level:          1,
+        rank:           i + 1,
       }));
       return { mapped, prev };
     }

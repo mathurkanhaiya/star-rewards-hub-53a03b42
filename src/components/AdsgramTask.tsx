@@ -283,11 +283,11 @@ export default function AdsgramTask({
             </div>
           )}
 
-          <adsgram-task
-            key={reloadKey}
-            ref={taskRef}
-            data-block-id={blockId}
-          />
+          {React.createElement('adsgram-task', {
+            key: reloadKey,
+            ref: taskRef,
+            'data-block-id': blockId,
+          })}
         </div>
 
         {state === "done" && (

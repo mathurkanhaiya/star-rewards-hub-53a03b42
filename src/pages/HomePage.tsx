@@ -387,26 +387,7 @@ export default function HomePage() {
     if (!pts || !user) return;
     pendingTapPts.current = 0;
     try {
-      const { data: bal } = await supabase
-        .from("balances")
-        .select("points,total_earned")
-        .eq("user_id", user.id)
-        .single();
-
-      if (bal) {
-        await Promise.all([
-          supabase.from("balances").update({
-            points:       bal.points       + pts,
-            total_earned: bal.total_earned + pts,
-          }).eq("user_id", user.id),
-          supabase.from("transactions").insert({
-            user_id: user.id,
-            type: "tap_earn",
-            points: pts,
-            description: `👆 Tap (${pts} pts)`,
-          }),
-        ]);
-      }
+      await claimGameReward("tap_earn", pts, `👆 Tap (${pts} pts)`);
     } catch (err) {
       console.error("flushTaps:", err);
       pendingTapPts.current += pts;

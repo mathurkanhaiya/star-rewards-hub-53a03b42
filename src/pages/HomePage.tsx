@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import { getTransactions, logAdWatch } from "@/lib/api";
+import { getTransactions, logAdWatch, claimGameReward } from "@/lib/api";
 import { useRewardedAd } from "@/hooks/useAdsgram";
-import { supabase } from "@/integrations/supabase/client";
 import AdsgramTask from "@/components/AdsgramTask";
 
 type HapticType = "impact" | "success" | "error";

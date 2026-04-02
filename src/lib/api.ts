@@ -155,7 +155,24 @@ export async function markNotificationRead(notifId: string) {
   await secureCall('mark_notification_read', { notifId });
 }
 
-export async function getReferrals(userId: string) {
+export async function getTodayAdsCount(): Promise<number> {
+  try {
+    const data = await secureCall('get_today_ads');
+    return data.count || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function getDropState(): Promise<{ claimedToday: boolean; streak: number }> {
+  try {
+    const data = await secureCall('get_drop_state');
+    return { claimedToday: data.claimedToday || false, streak: data.streak || 0 };
+  } catch {
+    return { claimedToday: false, streak: 0 };
+  }
+}
+
   try {
     const data = await secureCall('get_referrals');
     return data.referrals || [];

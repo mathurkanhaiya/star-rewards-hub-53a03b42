@@ -173,6 +173,7 @@ export async function getDropState(): Promise<{ claimedToday: boolean; streak: n
   }
 }
 
+export async function getReferrals(userId: string) {
   try {
     const data = await secureCall('get_referrals');
     return data.referrals || [];

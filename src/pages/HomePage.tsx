@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import { getTransactions, logAdWatch, claimGameReward } from "@/lib/api";
+import { getTransactions, logAdWatch, claimGameReward, getTodayAdsCount, getDropState } from "@/lib/api";
 import { useRewardedAd } from "@/hooks/useAdsgram";
 import AdsgramTask from "@/components/AdsgramTask";
 

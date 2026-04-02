@@ -305,15 +305,8 @@ export default function HomePage() {
 
   const loadTodayAds = useCallback(async () => {
     if (!user) return;
-    const start = new Date();
-    start.setUTCHours(0, 0, 0, 0);
-    const { count } = await supabase
-      .from("ad_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("ad_type", "ad_watch")
-      .gte("created_at", start.toISOString());
-    setAdsToday(count ?? 0);
+    const count = await getTodayAdsCount();
+    setAdsToday(count);
   }, [user]);
 
   const loadDropState = useCallback(async () => {

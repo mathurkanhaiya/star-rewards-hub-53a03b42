@@ -187,7 +187,39 @@ serve(async (req) => {
         return json({ spins: data || [] });
       }
 
-      case 'get_contest_leaderboard': {
+      case 'get_today_ads': {
+        const start = new Date();
+        start.setUTCHours(0, 0, 0, 0);
+        const { count } = await supabase.from('ad_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', dbUser.id).eq('ad_type', 'ad_watch')
+          .gte('created_at', start.toISOString());
+        return json({ count: count || 0 });
+      }
+
+      case 'get_drop_state': {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: todayClaim } = await supabase.from('daily_claims')
+          .select('id').eq('user_id', dbUser.id).eq('claim_date', today).maybeSingle();
+        const claimedToday = !!todayClaim;
+        const { data: claims } = await supabase.from('daily_claims')
+          .select('claim_date').eq('user_id', dbUser.id)
+          .order('claim_date', { ascending: false }).limit(8);
+        let streak = 0;
+        if (claims?.length) {
+          const now = new Date(); now.setUTCHours(0, 0, 0, 0);
+          const startOffset = claimedToday ? 0 : 1;
+          for (let i = 0; i < claims.length; i++) {
+            const expected = new Date(now);
+            expected.setUTCDate(now.getUTCDate() - (i + startOffset));
+            if (claims[i].claim_date === expected.toISOString().split('T')[0]) streak++;
+            else break;
+          }
+        }
+        return json({ claimedToday, streak });
+      }
+
+
         const { contestId } = body;
         if (!contestId) return json({ error: 'Missing contestId' }, 400);
         const { data } = await supabase.from('contest_entries')

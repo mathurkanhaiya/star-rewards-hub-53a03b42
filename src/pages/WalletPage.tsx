@@ -5,17 +5,18 @@ import { submitWithdrawal } from ‘@/lib/api’;
 
 // 1 TON = 150,000 pts
 const TON_TIERS = [
-{ pts:  7500, ton: 0.05 },
-{ pts: 15000, ton: 0.1  },
-{ pts: 22500, ton: 0.15 },
-{ pts: 30000, ton: 0.2  },
+{ pts:  5000, ton: 0.033 },
+{ pts: 10000, ton: 0.067 },
+{ pts: 15000, ton: 0.1   },
+{ pts: 20000, ton: 0.133 },
 ];
 
+// UPI: same 2/3 ratio applied
 const UPI_TIERS = [
-{ pts:  5000, inr: 5  },
-{ pts: 10000, inr: 10 },
-{ pts: 15000, inr: 15 },
-{ pts: 20000, inr: 20 },
+{ pts:  5000, inr: 3  },
+{ pts: 10000, inr: 7  },
+{ pts: 15000, inr: 10 },
+{ pts: 20000, inr: 13 },
 ];
 
 const REQUIRED_ADS = 20;

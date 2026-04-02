@@ -202,37 +202,10 @@ export default function LeaderboardPage() {
   /* ── Fetch ads leaderboard ── */
   const fetchAds = useCallback(async (subTab: AdsSubTab) => {
     const activeContests = await getActiveContests();
-
-    const range = getDateRange(subTab);
-    let query = supabase.from('ad_logs').select('user_id, created_at');
-    if (range.from) query = query.gte('created_at', range.from);
-    if (range.to)   query = query.lt('created_at', range.to);
-
-    const { data: adLogs, error } = await query;
-    if (error) return { adLeaders: [], contests: activeContests as Contest[] };
-
-    const counts: Record<string, number> = {};
-    (adLogs || []).forEach((log: any) => {
-      counts[log.user_id] = (counts[log.user_id] || 0) + 1;
-    });
-
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 50);
-    if (sorted.length === 0) return { adLeaders: [], contests: activeContests as Contest[] };
-
-    const userIds = sorted.map(([uid]) => uid);
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, first_name, username, telegram_id, photo_url')
-      .in('id', userIds);
-
-    const userMap: Record<string, any> = {};
-    (users || []).forEach(u => { userMap[u.id] = u; });
-
+    // For now, show contest leaderboards only
     return {
       contests: activeContests as Contest[],
-      adLeaders: sorted.map(([uid, score]) => ({
-        user_id: uid, score, users: userMap[uid] || {},
-      })),
+      adLeaders: [],
     };
   }, []);
 

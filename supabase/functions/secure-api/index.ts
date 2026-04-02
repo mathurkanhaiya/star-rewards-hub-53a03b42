@@ -219,7 +219,7 @@ serve(async (req) => {
         return json({ claimedToday, streak });
       }
 
-
+      case 'get_contest_leaderboard': {
         const { contestId } = body;
         if (!contestId) return json({ error: 'Missing contestId' }, 400);
         const { data } = await supabase.from('contest_entries')

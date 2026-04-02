@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { getLeaderboard, getActiveContests } from '@/lib/api';
+import { getLeaderboard, getActiveContests, getContestLeaderboard } from '@/lib/api';
 import { LeaderboardEntry, Contest } from '@/types/telegram';
 import { useApp } from '@/context/AppContext';
-import { supabase } from '@/integrations/supabase/client';
 
 type LeaderboardTab = 'points' | 'ads';
 type AdsSubTab = 'today' | 'yesterday' | 'week';

@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { AppUser, UserBalance, TelegramUser, Notification } from '@/types/telegram';
 import { initUser, getUserBalance, getSettings, getUnreadNotifCount, getNotifications, markNotificationRead } from '@/lib/api';
 import { showInterstitialAd } from '@/hooks/useAdsgram';
-import { supabase } from '@/integrations/supabase/client';
 
 interface AppContextType {
   telegramUser: TelegramUser | null;
@@ -63,45 +62,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     initApp();
   }, []);
 
-  // Realtime subscriptions
+  // Poll for balance & notification updates every 30s
   useEffect(() => {
     if (!user) return;
-
-    // Subscribe to balance changes
-    const balanceChannel = supabase
-      .channel('balance-changes')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'balances', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          setBalance(payload.new as UserBalance);
-        })
-      .subscribe();
-
-    // Subscribe to notifications
-    const notifChannel = supabase
-      .channel('notification-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const newNotif = payload.new as Notification;
-          setNotifications(prev => [newNotif, ...prev]);
-          setUnreadCount(prev => prev + 1);
-        })
-      .subscribe();
-
-    // Subscribe to settings changes (admin)
-    const settingsChannel = supabase
-      .channel('settings-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' },
-        () => {
-          // Refresh settings when they change
-          getSettings().then(s => setSettings(s));
-        })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(balanceChannel);
-      supabase.removeChannel(notifChannel);
-      supabase.removeChannel(settingsChannel);
-    };
+    const interval = setInterval(async () => {
+      try {
+        const [bal, unread] = await Promise.all([
+          getUserBalance(user.id),
+          getUnreadNotifCount(user.id),
+        ]);
+        if (bal) setBalance(bal);
+        setUnreadCount(unread);
+      } catch {}
+    }, 30000);
+    return () => clearInterval(interval);
   }, [user?.id]);
 
   async function initApp() {
@@ -109,7 +83,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const tgUser = detectTelegramEnv();
 
-      // Not running inside Telegram — show nothing, load nothing
       if (!tgUser) {
         setIsLoading(false);
         return;

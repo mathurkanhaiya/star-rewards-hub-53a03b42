@@ -313,35 +313,8 @@ export default function HomePage() {
     if (!user) return;
     setDropLoading(true);
     try {
-      const today = new Date().toISOString().split("T")[0];
-
-      const { data: todayClaim } = await supabase
-        .from("daily_claims")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("claim_date", today)
-        .maybeSingle();
-      const claimedToday = !!todayClaim;
+      const { claimedToday, streak } = await getDropState();
       setDropClaimedToday(claimedToday);
-
-      const { data: claims } = await supabase
-        .from("daily_claims")
-        .select("claim_date")
-        .eq("user_id", user.id)
-        .order("claim_date", { ascending: false })
-        .limit(8);
-
-      if (!claims?.length) { setDropStreak(0); return; }
-
-      let streak = 0;
-      const now = new Date(); now.setUTCHours(0, 0, 0, 0);
-      const startOffset = claimedToday ? 0 : 1;
-      for (let i = 0; i < claims.length; i++) {
-        const expected = new Date(now);
-        expected.setUTCDate(now.getUTCDate() - (i + startOffset));
-        if (claims[i].claim_date === expected.toISOString().split("T")[0]) streak++;
-        else break;
-      }
       setDropStreak(streak);
     } finally {
       setDropLoading(false);

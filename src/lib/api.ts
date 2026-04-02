@@ -3,6 +3,29 @@ import { AppUser, UserBalance, Task, Withdrawal, LeaderboardEntry } from '@/type
 const EDGE_FN = `https://utfkqzmrcdfbnjdkjais.supabase.co/functions/v1`;
 const API_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Secure game reward call
+export async function claimGameReward(
+  gameType: string,
+  points: number,
+  description: string,
+  extra?: Record<string, any>
+): Promise<{ success: boolean; points: number; balance?: any }> {
+  try {
+    const response = await fetch(`${EDGE_FN}/game-reward`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': API_KEY,
+        'x-telegram-init-data': getInitData(),
+      },
+      body: JSON.stringify({ gameType, points, description, extra }),
+    });
+    return await response.json();
+  } catch {
+    return { success: false, points: 0 };
+  }
+}
+
 // Get Telegram initData for authentication
 function getInitData(): string {
   try {

@@ -452,24 +452,12 @@ export default function HomePage() {
     setDropClaiming(true);
     try {
       const today = new Date().toISOString().split("T")[0];
-
-      const { data: existing } = await supabase
-        .from("daily_claims")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("claim_date", today)
-        .maybeSingle();
-      if (existing) { setDropClaimedToday(true); return; }
-
       const dayIndex = Math.min(dropStreak, 6);
       const reward   = DAILY_DROP[dayIndex].pts;
 
-      const { error } = await supabase.from("daily_claims").insert({
-        user_id: user.id, claim_date: today, claimed_at: new Date().toISOString(),
-      });
-      if (error) { setDropClaimedToday(true); return; }
+      const result = await claimGameReward("daily_drop", reward, `🎁 Daily Drop Day ${dayIndex + 1}: +${reward} pts`, { claimDate: today });
+      if (!result.success) { setDropClaimedToday(true); return; }
 
-      await creditBalance(reward, "daily_drop", `🎁 Daily Drop Day ${dayIndex + 1}: +${reward} pts`);
       setDropClaimedToday(true);
       setDropStreak(p => p + 1);
       showMsg(`+${reward} pts 🎁 Day ${dayIndex + 1}!`);

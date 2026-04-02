@@ -182,39 +182,18 @@ export default function LeaderboardPage() {
 
   /* ── Fetch points leaderboard ── */
   const fetchPoints = useCallback(async () => {
-    const { data: balances } = await supabase
-      .from('balances')
-      .select('user_id, points, total_earned, users:user_id(id, first_name, username, telegram_id, photo_url)')
-      .order('points', { ascending: false })
-      .limit(50);
-
-    if (balances && balances.length > 0) {
-      // Snapshot previous ranks from the stable ref — no stale closure
-      const prev: Record<number, number> = {};
-      leadersRef.current.forEach((l, i) => { prev[l.telegram_id] = i + 1; });
-
-      const mapped: LeaderboardEntry[] = balances.map((b: any, i: number) => ({
-        id:             b.user_id,
-        user_id:        b.user_id,
-        telegram_id:    b.users?.telegram_id,
-        first_name:     b.users?.first_name || 'User',
-        username:       b.users?.username,
-        photo_url:      b.users?.photo_url,
-        total_points:   b.points,
-        current_points: b.points,
-        level:          1,
-        rank:           i + 1,
-      }));
-      return { mapped, prev };
-    }
-
-    // Fallback to API
     const data = await getLeaderboard();
     const prev: Record<number, number> = {};
     leadersRef.current.forEach(l => { prev[l.telegram_id] = l.rank; });
-    const mapped = (data || []).map((l: any, i: number) => ({
-      ...l,
-      total_points: l.total_points ?? l.points ?? 0,
+    const mapped: LeaderboardEntry[] = (data || []).map((l: any, i: number) => ({
+      id: l.id,
+      telegram_id: l.telegram_id,
+      first_name: l.first_name || 'User',
+      username: l.username,
+      photo_url: l.photo_url,
+      total_points: l.total_points ?? 0,
+      current_points: l.current_points ?? l.total_points ?? 0,
+      level: l.level ?? 1,
       rank: l.rank ?? i + 1,
     }));
     return { mapped, prev };

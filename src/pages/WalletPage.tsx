@@ -20,6 +20,7 @@ const UPI_TIERS = [
 ];
 
 const REQUIRED_ADS = 20;
+const TON_RATE     = 150000; // pts per 1 TON
 
 function isValidTon(addr: string) {
 return /^UQ[A-Za-z0-9_-]{46,}$/.test(addr);

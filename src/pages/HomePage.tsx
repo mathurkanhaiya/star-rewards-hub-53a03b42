@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import { getTransactions, logAdWatch, claimGameReward, getTodayAdsCount, getDropState } from "@/lib/api";
+import { getTransactions, logAdWatch } from "@/lib/api";
 import { useRewardedAd } from "@/hooks/useAdsgram";
+import { supabase } from "@/integrations/supabase/client";
 import AdsgramTask from "@/components/AdsgramTask";
 
 type HapticType = "impact" | "success" | "error";
@@ -305,16 +306,50 @@ export default function HomePage() {
 
   const loadTodayAds = useCallback(async () => {
     if (!user) return;
-    const count = await getTodayAdsCount();
-    setAdsToday(count);
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    const { count } = await supabase
+      .from("ad_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("ad_type", "ad_watch")
+      .gte("created_at", start.toISOString());
+    setAdsToday(count ?? 0);
   }, [user]);
 
   const loadDropState = useCallback(async () => {
     if (!user) return;
     setDropLoading(true);
     try {
-      const { claimedToday, streak } = await getDropState();
+      const today = new Date().toISOString().split("T")[0];
+
+      const { data: todayClaim } = await supabase
+        .from("daily_claims")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("claim_date", today)
+        .maybeSingle();
+      const claimedToday = !!todayClaim;
       setDropClaimedToday(claimedToday);
+
+      const { data: claims } = await supabase
+        .from("daily_claims")
+        .select("claim_date")
+        .eq("user_id", user.id)
+        .order("claim_date", { ascending: false })
+        .limit(8);
+
+      if (!claims?.length) { setDropStreak(0); return; }
+
+      let streak = 0;
+      const now = new Date(); now.setUTCHours(0, 0, 0, 0);
+      const startOffset = claimedToday ? 0 : 1;
+      for (let i = 0; i < claims.length; i++) {
+        const expected = new Date(now);
+        expected.setUTCDate(now.getUTCDate() - (i + startOffset));
+        if (claims[i].claim_date === expected.toISOString().split("T")[0]) streak++;
+        else break;
+      }
       setDropStreak(streak);
     } finally {
       setDropLoading(false);
@@ -375,7 +410,23 @@ export default function HomePage() {
   const creditBalance = useCallback(async (pts: number, type: string, desc: string) => {
     if (!user) return;
     try {
-      await claimGameReward(type, pts, desc);
+      const { data: bal } = await supabase
+        .from("balances")
+        .select("points,total_earned")
+        .eq("user_id", user.id)
+        .single();
+
+      if (bal) {
+        await Promise.all([
+          supabase.from("balances").update({
+            points:       bal.points       + pts,
+            total_earned: bal.total_earned + pts,
+          }).eq("user_id", user.id),
+          supabase.from("transactions").insert({
+            user_id: user.id, type, points: pts, description: desc,
+          }),
+        ]);
+      }
     } catch (err) {
       console.error("creditBalance:", err);
     }
@@ -387,7 +438,26 @@ export default function HomePage() {
     if (!pts || !user) return;
     pendingTapPts.current = 0;
     try {
-      await claimGameReward("tap_earn", pts, `👆 Tap (${pts} pts)`);
+      const { data: bal } = await supabase
+        .from("balances")
+        .select("points,total_earned")
+        .eq("user_id", user.id)
+        .single();
+
+      if (bal) {
+        await Promise.all([
+          supabase.from("balances").update({
+            points:       bal.points       + pts,
+            total_earned: bal.total_earned + pts,
+          }).eq("user_id", user.id),
+          supabase.from("transactions").insert({
+            user_id: user.id,
+            type: "tap_earn",
+            points: pts,
+            description: `👆 Tap (${pts} pts)`,
+          }),
+        ]);
+      }
     } catch (err) {
       console.error("flushTaps:", err);
       pendingTapPts.current += pts;
@@ -452,12 +522,24 @@ export default function HomePage() {
     setDropClaiming(true);
     try {
       const today = new Date().toISOString().split("T")[0];
+
+      const { data: existing } = await supabase
+        .from("daily_claims")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("claim_date", today)
+        .maybeSingle();
+      if (existing) { setDropClaimedToday(true); return; }
+
       const dayIndex = Math.min(dropStreak, 6);
       const reward   = DAILY_DROP[dayIndex].pts;
 
-      const result = await claimGameReward("daily_drop", reward, `🎁 Daily Drop Day ${dayIndex + 1}: +${reward} pts`, { claimDate: today });
-      if (!result.success) { setDropClaimedToday(true); return; }
+      const { error } = await supabase.from("daily_claims").insert({
+        user_id: user.id, claim_date: today, claimed_at: new Date().toISOString(),
+      });
+      if (error) { setDropClaimedToday(true); return; }
 
+      await creditBalance(reward, "daily_drop", `🎁 Daily Drop Day ${dayIndex + 1}: +${reward} pts`);
       setDropClaimedToday(true);
       setDropStreak(p => p + 1);
       showMsg(`+${reward} pts 🎁 Day ${dayIndex + 1}!`);

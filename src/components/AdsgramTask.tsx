@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -283,11 +283,11 @@ export default function AdsgramTask({
             </div>
           )}
 
-          {React.createElement('adsgram-task', {
-            key: reloadKey,
-            ref: taskRef,
-            'data-block-id': blockId,
-          })}
+          <adsgram-task
+            key={reloadKey}
+            ref={taskRef}
+            data-block-id={blockId}
+          />
         </div>
 
         {state === "done" && (

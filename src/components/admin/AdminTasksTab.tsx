@@ -509,7 +509,7 @@ export default function AdminTasksTab({ tasks, onToggle, onDelete, onCreate }: P
                     className="at-task-type-tag"
                     style={{ background: `${tc.color}10`, border: `1px solid ${tc.color}20`, color: tc.color }}
                   >
-                    {'value' in tc ? tc.value : t.task_type}
+                    {tc.value || t.task_type}
                   </div>
                   <div className="at-task-title">{t.title}</div>
                   <div className="at-task-meta">

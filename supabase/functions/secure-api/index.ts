@@ -7,31 +7,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-telegram-init-data, x-supabase-client-platform, x-supabase-client-platform-version',
 };
 
-// Validate Telegram WebApp initData using HMAC-SHA256
 function validateInitData(initData: string, botToken: string): { valid: boolean; user?: any } {
   try {
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
     if (!hash) return { valid: false };
-
     params.delete('hash');
     const entries = Array.from(params.entries());
     entries.sort(([a], [b]) => a.localeCompare(b));
     const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join('\n');
-
     const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
     const computedHash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-
     if (computedHash !== hash) return { valid: false };
-
-    // Check auth_date is not too old (allow 24h window)
     const authDate = parseInt(params.get('auth_date') || '0');
     const now = Math.floor(Date.now() / 1000);
     if (now - authDate > 86400) return { valid: false };
-
     const userStr = params.get('user');
     const user = userStr ? JSON.parse(userStr) : null;
-
     return { valid: true, user };
   } catch (e) {
     console.error('initData validation error:', e);
@@ -55,43 +47,34 @@ serve(async (req) => {
   );
 
   try {
-    // Get initData from header
     const initData = req.headers.get('x-telegram-init-data') || '';
     const body = await req.json().catch(() => ({}));
     const action = body.action as string;
 
     if (!action) return json({ error: 'Missing action' }, 400);
 
-    // Actions that don't require auth
     const publicActions = ['get_settings', 'get_tasks', 'get_active_contests', 'get_leaderboard'];
-    
+
     let telegramUser: any = null;
     let dbUser: any = null;
 
     if (!publicActions.includes(action)) {
-      // Validate initData for protected actions
       const validation = validateInitData(initData, botToken);
       if (!validation.valid || !validation.user) {
         return json({ error: 'Invalid or expired Telegram session' }, 401);
       }
       telegramUser = validation.user;
 
-      // Get DB user
       const { data: u } = await supabase
-        .from('users')
-        .select('*')
-        .eq('telegram_id', telegramUser.id)
-        .single();
+        .from('users').select('*').eq('telegram_id', telegramUser.id).single();
 
       if (!u) return json({ error: 'User not found' }, 404);
       if (u.is_banned) return json({ error: 'Account suspended' }, 403);
       dbUser = u;
 
-      // Update last active
       await supabase.from('users').update({ last_active_at: new Date().toISOString() }).eq('id', u.id);
     }
 
-    // Route actions
     switch (action) {
       // ===== PUBLIC =====
       case 'get_settings': {
@@ -149,7 +132,6 @@ serve(async (req) => {
       case 'mark_notification_read': {
         const { notifId } = body;
         if (!notifId) return json({ error: 'Missing notifId' }, 400);
-        // Verify notification belongs to user
         const { data: notif } = await supabase.from('notifications').select('user_id').eq('id', notifId).single();
         if (!notif || notif.user_id !== dbUser.id) return json({ error: 'Not found' }, 404);
         await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
@@ -192,7 +174,7 @@ serve(async (req) => {
         start.setUTCHours(0, 0, 0, 0);
         const { count } = await supabase.from('ad_logs')
           .select('id', { count: 'exact', head: true })
-          .eq('user_id', dbUser.id).eq('ad_type', 'ad_watch')
+          .eq('user_id', dbUser.id)
           .gte('created_at', start.toISOString());
         return json({ count: count || 0 });
       }
@@ -217,6 +199,108 @@ serve(async (req) => {
           }
         }
         return json({ claimedToday, streak });
+      }
+
+      // ===== GAME DAILY COUNTS =====
+      case 'get_game_today_count': {
+        const { gameType } = body;
+        if (!gameType) return json({ error: 'Missing gameType' }, 400);
+
+        const start = new Date();
+        start.setUTCHours(0, 0, 0, 0);
+
+        // Tower uses tower_runs table, others use transactions
+        if (gameType === 'tower_climb') {
+          const { count } = await supabase.from('tower_runs')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', dbUser.id)
+            .gte('created_at', start.toISOString());
+          return json({ count: count || 0 });
+        }
+
+        const { count } = await supabase.from('transactions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', dbUser.id)
+          .eq('type', gameType)
+          .gte('created_at', start.toISOString());
+        return json({ count: count || 0 });
+      }
+
+      // ===== TOWER STATS =====
+      case 'get_tower_stats': {
+        const { data } = await supabase.from('tower_leaderboard')
+          .select('best_floor, total_runs')
+          .eq('user_id', dbUser.id).maybeSingle();
+        return json({ stats: data || { best_floor: 0, total_runs: 0 } });
+      }
+
+      case 'get_tower_leaderboard': {
+        const { data } = await supabase.from('tower_leaderboard')
+          .select('user_id, best_floor, total_runs')
+          .order('best_floor', { ascending: false }).limit(20);
+        if (!data || data.length === 0) return json({ entries: [] });
+        const userIds = data.map((d: any) => d.user_id);
+        const { data: users } = await supabase.from('users')
+          .select('id, first_name, username, photo_url').in('id', userIds);
+        const userMap: Record<string, any> = {};
+        (users || []).forEach((u: any) => { userMap[u.id] = u; });
+        const entries = data.map((d: any) => ({
+          ...d,
+          first_name: userMap[d.user_id]?.first_name || 'Unknown',
+          username: userMap[d.user_id]?.username || '',
+          photo_url: userMap[d.user_id]?.photo_url,
+        }));
+        return json({ entries });
+      }
+
+      // ===== PROMOS =====
+      case 'get_active_promos': {
+        const { data } = await supabase.from('promos')
+          .select('id, title, reward_points, max_claims, total_claimed')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        if (!data || data.length === 0) return json({ promos: [], claimed: [] });
+
+        const { data: claims } = await supabase.from('promo_claims')
+          .select('promo_id')
+          .eq('user_id', dbUser.id)
+          .in('promo_id', data.map((p: any) => p.id));
+
+        const claimedIds = (claims || []).map((c: any) => c.promo_id);
+        const available = data.filter((p: any) => p.total_claimed < p.max_claims && !claimedIds.includes(p.id));
+        return json({ promos: available, claimed: claimedIds });
+      }
+
+      case 'claim_promo': {
+        const { promoId } = body;
+        if (!promoId) return json({ error: 'Missing promoId' }, 400);
+
+        // Check not already claimed
+        const { data: existing } = await supabase.from('promo_claims')
+          .select('id').eq('promo_id', promoId).eq('user_id', dbUser.id).maybeSingle();
+        if (existing) return json({ error: 'Already claimed' }, 400);
+
+        // Check slots
+        const { data: promo } = await supabase.from('promos')
+          .select('total_claimed, max_claims, reward_points, title, is_active')
+          .eq('id', promoId).single();
+        if (!promo || !promo.is_active) return json({ error: 'Promo not available' }, 400);
+        if (promo.total_claimed >= promo.max_claims) return json({ error: 'Promo full' }, 400);
+
+        // Claim
+        await supabase.from('promo_claims').insert({ promo_id: promoId, user_id: dbUser.id });
+        await supabase.from('promos').update({ total_claimed: promo.total_claimed + 1 }).eq('id', promoId);
+
+        // Award points
+        await supabase.rpc('increment_points', { p_user_id: dbUser.id, p_points: promo.reward_points });
+        await supabase.from('transactions').insert({
+          user_id: dbUser.id,
+          type: 'promo',
+          points: promo.reward_points,
+          description: `🎁 Promo: ${promo.title}`,
+        });
+
+        return json({ success: true, points: promo.reward_points });
       }
 
       case 'get_contest_leaderboard': {
@@ -276,8 +360,12 @@ serve(async (req) => {
       case 'admin_get_contests':
       case 'admin_create_contest':
       case 'admin_end_contest':
-      case 'admin_send_broadcast': {
-        // Verify admin
+      case 'admin_send_broadcast':
+      case 'admin_get_promos':
+      case 'admin_create_promo':
+      case 'admin_toggle_promo':
+      case 'admin_delete_promo':
+      case 'admin_get_user_activity': {
         const adminId = parseInt(Deno.env.get('ADMIN_TELEGRAM_ID') || '0');
         if (telegramUser.id !== adminId) {
           return json({ error: 'Unauthorized' }, 403);
@@ -314,7 +402,7 @@ async function handleAdminAction(supabase: any, action: string, body: any, teleg
 
     case 'admin_get_users': {
       const { data } = await supabase.from('users').select('*, balances(*)')
-        .order('created_at', { ascending: false }).range(0, 9999999);
+        .order('created_at', { ascending: false }).limit(10000);
       return json({ users: data || [] });
     }
 
@@ -327,7 +415,6 @@ async function handleAdminAction(supabase: any, action: string, body: any, teleg
 
     case 'admin_update_withdrawal': {
       const { withdrawalId, status, adminNote } = body;
-      // Forward to existing edge function logic
       const resp = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/admin-withdrawal`, {
         method: 'POST',
         headers: {
@@ -425,6 +512,55 @@ async function handleAdminAction(supabase: any, action: string, body: any, teleg
         }
       }
       return json({ success: true });
+    }
+
+    // ===== ADMIN PROMOS =====
+    case 'admin_get_promos': {
+      const { data } = await supabase.from('promos').select('*').order('created_at', { ascending: false });
+      return json({ promos: data || [] });
+    }
+
+    case 'admin_create_promo': {
+      const { title, reward_points, max_claims } = body;
+      const { error } = await supabase.from('promos').insert({
+        title, reward_points: reward_points || 50, max_claims: max_claims || 100,
+      });
+      return json({ success: !error });
+    }
+
+    case 'admin_toggle_promo': {
+      const { promoId, isActive } = body;
+      await supabase.from('promos').update({ is_active: isActive }).eq('id', promoId);
+      return json({ success: true });
+    }
+
+    case 'admin_delete_promo': {
+      const { promoId } = body;
+      await supabase.from('promo_claims').delete().eq('promo_id', promoId);
+      await supabase.from('promos').delete().eq('id', promoId);
+      return json({ success: true });
+    }
+
+    // ===== ADMIN USER ACTIVITY =====
+    case 'admin_get_user_activity': {
+      const { userId } = body;
+      if (!userId) return json({ error: 'Missing userId' }, 400);
+
+      const [txRes, adRes, dropRes, balRes] = await Promise.all([
+        supabase.from('transactions').select('id, type, points, description, created_at')
+          .eq('user_id', userId).order('created_at', { ascending: false }).limit(150),
+        supabase.from('ad_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+        supabase.from('daily_claims').select('claim_date')
+          .eq('user_id', userId).order('claim_date', { ascending: false }).limit(7),
+        supabase.from('balances').select('points').eq('user_id', userId).single(),
+      ]);
+
+      return json({
+        transactions: txRes.data || [],
+        adCount: adRes.count || 0,
+        drops: dropRes.data || [],
+        currentBalance: balRes.data?.points || 0,
+      });
     }
 
     default:

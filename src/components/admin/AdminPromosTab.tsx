@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { adminGetPromos, adminCreatePromo, adminTogglePromo, adminDeletePromo } from '@/lib/api';
 
 interface Promo {
   id: string;
@@ -24,112 +24,69 @@ export default function AdminPromosTab({ onMessage }: Props) {
   useEffect(() => { loadPromos(); }, []);
 
   async function loadPromos() {
-    const { data } = await supabase
-      .from('promos')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setPromos((data as Promo[]) || []);
+    const data = await adminGetPromos();
+    setPromos(data || []);
   }
 
   async function createPromo() {
     if (!title.trim()) return;
-    const { error } = await supabase.from('promos').insert({
-      title: title.trim(),
-      reward_points: parseInt(reward) || 50,
-      max_claims: parseInt(maxClaims) || 100,
-    });
-    if (error) { onMessage('Failed to create promo', 'error'); return; }
+    const result = await adminCreatePromo(title.trim(), parseInt(reward) || 50, parseInt(maxClaims) || 100);
+    if (!result.success) { onMessage('Failed to create promo', 'error'); return; }
     onMessage('Promo created ✓');
     setTitle(''); setReward('50'); setMaxClaims('100');
     loadPromos();
   }
 
   async function togglePromo(id: string, active: boolean) {
-    await supabase.from('promos').update({ is_active: active }).eq('id', id);
+    await adminTogglePromo(id, active);
     onMessage(active ? 'Promo activated' : 'Promo deactivated');
     loadPromos();
   }
 
   async function deletePromo(id: string) {
-    await supabase.from('promo_claims').delete().eq('promo_id', id);
-    await supabase.from('promos').delete().eq('id', id);
+    await adminDeletePromo(id);
     onMessage('Promo deleted');
     loadPromos();
   }
 
   return (
     <div className="space-y-6">
-      {/* Create */}
       <div className="rounded-2xl p-4 space-y-3" style={{ background: '#111827', border: '1px solid rgba(239,68,68,0.3)' }}>
         <div className="text-sm font-bold text-red-400">Create Promo</div>
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder="Promo title..."
-          className="w-full px-3 py-2 rounded-lg bg-black/40 border border-gray-700 text-white text-sm"
-        />
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Promo title..."
+          className="w-full px-3 py-2 rounded-lg bg-black/40 border border-gray-700 text-white text-sm" />
         <div className="flex gap-2">
-          <input
-            type="number"
-            value={reward}
-            onChange={e => setReward(e.target.value)}
-            placeholder="Reward pts"
-            className="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-gray-700 text-white text-sm"
-          />
-          <input
-            type="number"
-            value={maxClaims}
-            onChange={e => setMaxClaims(e.target.value)}
-            placeholder="Max users"
-            className="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-gray-700 text-white text-sm"
-          />
+          <input type="number" value={reward} onChange={e => setReward(e.target.value)} placeholder="Reward pts"
+            className="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-gray-700 text-white text-sm" />
+          <input type="number" value={maxClaims} onChange={e => setMaxClaims(e.target.value)} placeholder="Max users"
+            className="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-gray-700 text-white text-sm" />
         </div>
-        <button
-          onClick={createPromo}
-          className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white active:scale-95 transition-all"
-        >
+        <button onClick={createPromo}
+          className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white active:scale-95 transition-all">
           🎁 Create Promo
         </button>
       </div>
 
-      {/* List */}
       {promos.map(p => (
-        <div
-          key={p.id}
-          className="rounded-2xl p-4"
-          style={{
-            background: 'linear-gradient(145deg, #0f172a, #1e293b)',
-            border: `1px solid ${p.is_active ? 'rgba(34,197,94,0.3)' : 'rgba(107,114,128,0.3)'}`,
-          }}
-        >
+        <div key={p.id} className="rounded-2xl p-4"
+          style={{ background: 'linear-gradient(145deg, #0f172a, #1e293b)', border: `1px solid ${p.is_active ? 'rgba(34,197,94,0.3)' : 'rgba(107,114,128,0.3)'}` }}>
           <div className="flex justify-between items-start mb-2">
             <div>
               <div className="font-bold text-white">{p.title}</div>
-              <div className="text-xs text-gray-400">
-                🎁 {p.reward_points} pts • {p.total_claimed}/{p.max_claims} claimed
-              </div>
+              <div className="text-xs text-gray-400">🎁 {p.reward_points} pts • {p.total_claimed}/{p.max_claims} claimed</div>
             </div>
             <span className={`text-xs px-2 py-1 rounded-full ${p.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
               {p.is_active ? 'Active' : 'Inactive'}
             </span>
           </div>
           <div className="flex gap-2 mt-3">
-            <button
-              onClick={() => togglePromo(p.id, !p.is_active)}
+            <button onClick={() => togglePromo(p.id, !p.is_active)}
               className="flex-1 py-2 rounded-lg text-xs font-bold transition active:scale-95"
-              style={{
-                background: p.is_active ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)',
-                color: p.is_active ? '#ef4444' : '#22c55e',
-              }}
-            >
+              style={{ background: p.is_active ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)', color: p.is_active ? '#ef4444' : '#22c55e' }}>
               {p.is_active ? 'Deactivate' : 'Activate'}
             </button>
-            <button
-              onClick={() => deletePromo(p.id)}
-              className="px-4 py-2 rounded-lg text-xs font-bold bg-red-500/15 text-red-400 transition active:scale-95"
-            >
-              🗑️
-            </button>
+            <button onClick={() => deletePromo(p.id)}
+              className="px-4 py-2 rounded-lg text-xs font-bold bg-red-500/15 text-red-400 transition active:scale-95">🗑️</button>
           </div>
         </div>
       ))}

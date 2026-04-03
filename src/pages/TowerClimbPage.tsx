@@ -166,13 +166,8 @@ export default function TowerClimbPage() {
 
   async function loadTodayCount() {
     setLimitLoading(true);
-    const start = new Date(); start.setUTCHours(0,0,0,0);
-    const { count } = await supabase
-      .from('tower_runs')
-      .select('id', { count:'exact', head:true })
-      .eq('user_id', user!.id)
-      .gte('created_at', start.toISOString());
-    setGamesPlayedToday(count || 0);
+    const count = await getGameTodayCount('tower_climb');
+    setGamesPlayedToday(count);
     setLimitLoading(false);
   }
 

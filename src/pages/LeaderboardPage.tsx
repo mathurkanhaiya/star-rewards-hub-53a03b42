@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { getLeaderboard, getActiveContests } from '@/lib/api';
+import { getLeaderboard, getActiveContests, getContestLeaderboard } from '@/lib/api';
 import { LeaderboardEntry, Contest } from '@/types/telegram';
 import { useApp } from '@/context/AppContext';
-import { supabase } from '@/integrations/supabase/client';
 
 type LeaderboardTab = 'points' | 'ads';
 type AdsSubTab = 'today' | 'yesterday' | 'week';
@@ -183,38 +182,18 @@ export default function LeaderboardPage() {
 
   /* ── Fetch points leaderboard ── */
   const fetchPoints = useCallback(async () => {
-    const { data: balances } = await supabase
-      .from('balances')
-      .select('user_id, points, total_earned, users:user_id(id, first_name, username, telegram_id, photo_url)')
-      .order('points', { ascending: false })
-      .limit(50);
-
-    if (balances && balances.length > 0) {
-      // Snapshot previous ranks from the stable ref — no stale closure
-      const prev: Record<number, number> = {};
-      leadersRef.current.forEach((l, i) => { prev[l.telegram_id] = i + 1; });
-
-      const mapped: LeaderboardEntry[] = balances.map((b: any, i: number) => ({
-        id:           b.user_id,
-        user_id:      b.user_id,
-        telegram_id:  b.users?.telegram_id,
-        first_name:   b.users?.first_name || 'User',
-        username:     b.users?.username,
-        photo_url:    b.users?.photo_url,
-        total_points: b.points,
-        points:       b.points,
-        rank:         i + 1,
-      }));
-      return { mapped, prev };
-    }
-
-    // Fallback to API
     const data = await getLeaderboard();
     const prev: Record<number, number> = {};
     leadersRef.current.forEach(l => { prev[l.telegram_id] = l.rank; });
-    const mapped = (data || []).map((l: any, i: number) => ({
-      ...l,
-      total_points: l.total_points ?? l.points ?? 0,
+    const mapped: LeaderboardEntry[] = (data || []).map((l: any, i: number) => ({
+      id: l.id,
+      telegram_id: l.telegram_id,
+      first_name: l.first_name || 'User',
+      username: l.username,
+      photo_url: l.photo_url,
+      total_points: l.total_points ?? 0,
+      current_points: l.current_points ?? l.total_points ?? 0,
+      level: l.level ?? 1,
       rank: l.rank ?? i + 1,
     }));
     return { mapped, prev };
@@ -223,37 +202,10 @@ export default function LeaderboardPage() {
   /* ── Fetch ads leaderboard ── */
   const fetchAds = useCallback(async (subTab: AdsSubTab) => {
     const activeContests = await getActiveContests();
-
-    const range = getDateRange(subTab);
-    let query = supabase.from('ad_logs').select('user_id, created_at');
-    if (range.from) query = query.gte('created_at', range.from);
-    if (range.to)   query = query.lt('created_at', range.to);
-
-    const { data: adLogs, error } = await query;
-    if (error) return { adLeaders: [], contests: activeContests as Contest[] };
-
-    const counts: Record<string, number> = {};
-    (adLogs || []).forEach((log: any) => {
-      counts[log.user_id] = (counts[log.user_id] || 0) + 1;
-    });
-
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 50);
-    if (sorted.length === 0) return { adLeaders: [], contests: activeContests as Contest[] };
-
-    const userIds = sorted.map(([uid]) => uid);
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, first_name, username, telegram_id, photo_url')
-      .in('id', userIds);
-
-    const userMap: Record<string, any> = {};
-    (users || []).forEach(u => { userMap[u.id] = u; });
-
+    // For now, show contest leaderboards only
     return {
       contests: activeContests as Contest[],
-      adLeaders: sorted.map(([uid, score]) => ({
-        user_id: uid, score, users: userMap[uid] || {},
-      })),
+      adLeaders: [],
     };
   }, []);
 

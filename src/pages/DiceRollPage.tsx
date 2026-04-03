@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useRewardedAd } from '@/hooks/useAdsgram';
-import { supabase } from '@/integrations/supabase/client';
+import { claimGameReward, getGameTodayCount } from '@/lib/api';
 
 function triggerHaptic(type: 'success' | 'error' | 'impact') {
   if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
@@ -178,14 +178,8 @@ export default function DiceRollPage() {
 
   async function loadTodayCount() {
     setLimitLoading(true);
-    const start = new Date(); start.setUTCHours(0,0,0,0);
-    const { count } = await supabase
-      .from('transactions')
-      .select('id', { count:'exact', head:true })
-      .eq('user_id', user!.id)
-      .eq('type', 'dice_roll')
-      .gte('created_at', start.toISOString());
-    setGamesPlayedToday(count || 0);
+    const count = await getGameTodayCount('dice_roll');
+    setGamesPlayedToday(count);
     setLimitLoading(false);
   }
 
@@ -239,18 +233,7 @@ export default function DiceRollPage() {
     triggerHaptic(pts >= 60 ? 'success' : 'impact');
 
     if (user) {
-      const { data: bal } = await supabase
-        .from('balances').select('points,total_earned').eq('user_id', user.id).single();
-      if (bal) {
-        await supabase.from('balances').update({
-          points: bal.points + pts,
-          total_earned: bal.total_earned + pts,
-        }).eq('user_id', user.id);
-        await supabase.from('transactions').insert({
-          user_id: user.id, type: 'dice_roll', points: pts,
-          description: `🎲 Dice Roll: ${tier.label} (${d1}+${d2}=${d1+d2}) +${pts} pts`,
-        });
-      }
+      await claimGameReward('dice_roll', pts, `🎲 Dice Roll: ${tier.label} (${d1}+${d2}=${d1+d2}) +${pts} pts`);
       refreshBalance();
     }
   };

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { adminGetUserActivity } from '@/lib/api';
 
 interface AdminUser {
   id: string;
@@ -353,15 +353,8 @@ export default function AdminUsersTab({ users, onBan, onAdjustBalance }: Props) 
     if (getPanel(userId).activity) return;
     setPanel(userId, { loading: true });
 
-    const [txRes, adRes, dropRes] = await Promise.all([
-      supabase.from('transactions').select('id,type,points,description,created_at')
-        .eq('user_id', userId).order('created_at', { ascending: false }).limit(150),
-      supabase.from('ad_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-      supabase.from('daily_claims').select('claim_date')
-        .eq('user_id', userId).order('claim_date', { ascending: false }).limit(7),
-    ]);
-
-    const txs: Transaction[] = txRes.data || [];
+    const result = await adminGetUserActivity(userId);
+    const txs: Transaction[] = result.transactions || [];
     const breakdown: EarningsBreakdown = {
       tap:0, farm:0, ads:0, games:0, daily:0, drop:0,
       referral:0, spin:0, tasks:0, promo:0, admin:0, other:0,
@@ -387,13 +380,11 @@ export default function AdminUsersTab({ users, onBan, onAdjustBalance }: Props) 
       else breakdown.other += pts;
     });
 
-    /* tap count from transactions */
     const tapCount  = txs.filter(t => t.type === 'tap_earn').length;
     const farmCount = txs.filter(t => t.type === 'farm_claim').length;
 
-    /* drop streak */
+    const drops = result.drops || [];
     let dropStreak = 0;
-    const drops = dropRes.data || [];
     if (drops.length > 0) {
       const now = new Date(); now.setUTCHours(0,0,0,0);
       for (let i = 0; i < drops.length; i++) {
@@ -404,16 +395,13 @@ export default function AdminUsersTab({ users, onBan, onAdjustBalance }: Props) 
       }
     }
 
-    const { data: balData } = await supabase
-      .from('balances').select('points').eq('user_id', userId).single();
-
     setPanel(userId, {
       loading: false,
       activity: {
         breakdown, transactions: txs, totalEarned,
-        currentBalance: balData?.points || 0,
+        currentBalance: result.currentBalance || 0,
         lastSeen: txs[0]?.created_at || null,
-        adCount: adRes.count || 0,
+        adCount: result.adCount || 0,
         tapCount, farmCount, dropStreak,
       },
     });

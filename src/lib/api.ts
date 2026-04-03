@@ -3,6 +3,34 @@ import { AppUser, UserBalance, Task, Withdrawal, LeaderboardEntry } from '@/type
 const EDGE_FN = `https://utfkqzmrcdfbnjdkjais.supabase.co/functions/v1`;
 const API_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+function getInitData(): string {
+  try {
+    return (window as any).Telegram?.WebApp?.initData || '';
+  } catch {
+    return '';
+  }
+}
+
+// Secure API call — all requests go through the secure-api edge function
+export async function secureCall(action: string, params: Record<string, any> = {}): Promise<any> {
+  const response = await fetch(`${EDGE_FN}/secure-api`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': API_KEY,
+      'x-telegram-init-data': getInitData(),
+    },
+    body: JSON.stringify({ action, ...params }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(err.error || `HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 // Secure game reward call
 export async function claimGameReward(
   gameType: string,
@@ -24,35 +52,6 @@ export async function claimGameReward(
   } catch {
     return { success: false, points: 0 };
   }
-}
-
-// Get Telegram initData for authentication
-function getInitData(): string {
-  try {
-    return (window as any).Telegram?.WebApp?.initData || '';
-  } catch {
-    return '';
-  }
-}
-
-// Secure API call — all requests go through the secure-api edge function
-async function secureCall(action: string, params: Record<string, any> = {}): Promise<any> {
-  const response = await fetch(`${EDGE_FN}/secure-api`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': API_KEY,
-      'x-telegram-init-data': getInitData(),
-    },
-    body: JSON.stringify({ action, ...params }),
-  });
-  
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(err.error || `HTTP ${response.status}`);
-  }
-  
-  return response.json();
 }
 
 // ==================== Public Functions ====================
@@ -77,7 +76,7 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   return (data.leaderboard as LeaderboardEntry[]) || [];
 }
 
-// ==================== Auth (still uses telegram-auth for init) ====================
+// ==================== Auth ====================
 
 export async function initUser(telegramUser: {
   id: number;
@@ -164,6 +163,33 @@ export async function getTodayAdsCount(): Promise<number> {
   }
 }
 
+export async function getGameTodayCount(gameType: string): Promise<number> {
+  try {
+    const data = await secureCall('get_game_today_count', { gameType });
+    return data.count || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function getTowerStats(): Promise<{ best_floor: number; total_runs: number }> {
+  try {
+    const data = await secureCall('get_tower_stats');
+    return data.stats || { best_floor: 0, total_runs: 0 };
+  } catch {
+    return { best_floor: 0, total_runs: 0 };
+  }
+}
+
+export async function getTowerLeaderboard() {
+  try {
+    const data = await secureCall('get_tower_leaderboard');
+    return data.entries || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getDropState(): Promise<{ claimedToday: boolean; streak: number }> {
   try {
     const data = await secureCall('get_drop_state');
@@ -218,7 +244,22 @@ export async function getSpinCount(userId: string) {
   }
 }
 
-// ==================== Actions (still use dedicated edge functions) ====================
+// ===== Promos =====
+
+export async function getActivePromos() {
+  try {
+    const data = await secureCall('get_active_promos');
+    return { promos: data.promos || [], claimed: data.claimed || [] };
+  } catch {
+    return { promos: [], claimed: [] };
+  }
+}
+
+export async function claimPromo(promoId: string) {
+  return secureCall('claim_promo', { promoId });
+}
+
+// ==================== Actions (dedicated edge functions) ====================
 
 export async function completeTask(userId: string, taskId: string): Promise<{ success: boolean; points?: number; message?: string }> {
   try {
@@ -300,12 +341,10 @@ export async function getContestLeaderboard(contestId: string) {
 
 export async function getAdWatchLeaderboard(contestId?: string) {
   if (contestId) return getContestLeaderboard(contestId);
-  // Fallback not needed since contests handle this
   return [];
 }
 
 export async function getReferralLeaderboard() {
-  // This would need a dedicated action; for now return empty
   return [];
 }
 
@@ -377,4 +416,29 @@ export async function adminEndContest(contestId: string) {
 
 export async function adminSendBroadcast(message: string, adminTelegramId: number) {
   return secureCall('admin_send_broadcast', { message });
+}
+
+// ===== Admin Promos =====
+
+export async function adminGetPromos() {
+  const data = await secureCall('admin_get_promos');
+  return data.promos || [];
+}
+
+export async function adminCreatePromo(title: string, reward_points: number, max_claims: number) {
+  return secureCall('admin_create_promo', { title, reward_points, max_claims });
+}
+
+export async function adminTogglePromo(promoId: string, isActive: boolean) {
+  return secureCall('admin_toggle_promo', { promoId, isActive });
+}
+
+export async function adminDeletePromo(promoId: string) {
+  return secureCall('admin_delete_promo', { promoId });
+}
+
+// ===== Admin User Activity =====
+
+export async function adminGetUserActivity(userId: string) {
+  return secureCall('admin_get_user_activity', { userId });
 }

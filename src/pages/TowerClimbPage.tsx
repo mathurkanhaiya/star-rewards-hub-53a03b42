@@ -173,32 +173,14 @@ export default function TowerClimbPage() {
 
   async function loadStats() {
     if (!user) return;
-    const { data } = await supabase
-      .from('tower_leaderboard')
-      .select('best_floor,total_runs')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (data) { setBestFloor(data.best_floor); setTotalRuns(data.total_runs); }
+    const stats = await getTowerStats();
+    setBestFloor(stats.best_floor);
+    setTotalRuns(stats.total_runs);
   }
 
   async function loadLeaderboard() {
-    const { data } = await supabase
-      .from('tower_leaderboard')
-      .select('user_id,best_floor,total_runs')
-      .order('best_floor', { ascending:false })
-      .limit(20);
-    if (!data || data.length === 0) { setLeaderboard([]); return; }
-    const userIds = data.map(d => d.user_id);
-    const { data: users } = await supabase
-      .from('users').select('id,first_name,username,photo_url').in('id', userIds);
-    const userMap: Record<string, any> = {};
-    (users || []).forEach(u => { userMap[u.id] = u; });
-    setLeaderboard(data.map(d => ({
-      ...d,
-      first_name: userMap[d.user_id]?.first_name || 'Unknown',
-      username:   userMap[d.user_id]?.username   || '',
-      photo_url:  userMap[d.user_id]?.photo_url,
-    })));
+    const entries = await getTowerLeaderboard();
+    setLeaderboard(entries);
   }
 
   const onMultiplierReward = useCallback(() => {

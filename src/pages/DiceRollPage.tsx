@@ -178,14 +178,8 @@ export default function DiceRollPage() {
 
   async function loadTodayCount() {
     setLimitLoading(true);
-    const start = new Date(); start.setUTCHours(0,0,0,0);
-    const { count } = await supabase
-      .from('transactions')
-      .select('id', { count:'exact', head:true })
-      .eq('user_id', user!.id)
-      .eq('type', 'dice_roll')
-      .gte('created_at', start.toISOString());
-    setGamesPlayedToday(count || 0);
+    const count = await getGameTodayCount('dice_roll');
+    setGamesPlayedToday(count);
     setLimitLoading(false);
   }
 

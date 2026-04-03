@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { supabase } from '@/integrations/supabase/client';
-import { submitWithdrawal } from '@/lib/api';
+import { submitWithdrawal, getTodayAdsCount } from '@/lib/api';
 
 const TON_TIERS = [
   { pts: 5000,  ton: 0.05 },

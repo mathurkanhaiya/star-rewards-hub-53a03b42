@@ -270,40 +270,11 @@ export default function TowerClimbPage() {
     cancelAnimationFrame(animRef.current);
     if (!user) return;
 
-    await supabase.from('tower_runs').insert({
-      user_id: user.id,
-      floors_reached: finalFloor,
-      points_earned: finalScore,
-    });
-
-    const { data: existing } = await supabase.from('tower_leaderboard')
-      .select('id,best_floor,total_runs,total_floors').eq('user_id', user.id).maybeSingle();
-    if (existing) {
-      await supabase.from('tower_leaderboard').update({
-        best_floor:   Math.max(existing.best_floor, finalFloor),
-        total_floors: existing.total_floors + finalFloor,
-        total_runs:   existing.total_runs + 1,
-        updated_at:   new Date().toISOString(),
-      }).eq('id', existing.id);
-    } else {
-      await supabase.from('tower_leaderboard').insert({
-        user_id: user.id, best_floor: finalFloor, total_floors: finalFloor, total_runs: 1,
-      });
-    }
-
+    // Credit points via secure backend
     if (finalScore > 0) {
-      const { data: bal } = await supabase
-        .from('balances').select('points,total_earned').eq('user_id', user.id).single();
-      if (bal) {
-        await supabase.from('balances').update({
-          points: bal.points + finalScore,
-          total_earned: bal.total_earned + finalScore,
-        }).eq('user_id', user.id);
-        await supabase.from('transactions').insert({
-          user_id: user.id, type: 'tower_climb', points: finalScore,
-          description: `🏗️ Tower Climb: Floor ${finalFloor} (+${finalScore} pts)`,
-        });
-      }
+      await claimGameReward('tower_climb', finalScore, `🏗️ Tower Climb: Floor ${finalFloor} (+${finalScore} pts)`, {
+        floors_reached: finalFloor,
+      });
       await refreshBalance();
     }
 

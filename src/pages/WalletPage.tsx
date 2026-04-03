@@ -158,16 +158,7 @@ export default function WalletPage() {
 
   useEffect(() => {
     if (!user) return;
-    const now = new Date();
-    const startOfDay = new Date(Date.UTC(
-      now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()
-    )).toISOString();
-    supabase
-      .from('ad_logs')
-      .select('id', { count:'exact', head:true })
-      .eq('user_id', user.id)
-      .gte('created_at', startOfDay)
-      .then(({ count }) => setAdCount(count || 0));
+    getTodayAdsCount().then(count => setAdCount(count));
   }, [user]);
 
   function openTonModal(tier: typeof TON_TIERS[0]) {

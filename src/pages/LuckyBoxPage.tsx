@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { useRewardedAd } from '@/hooks/useAdsgram';
-import { logAdWatch } from '@/lib/api';
-import { supabase } from '@/integrations/supabase/client';
+import { logAdWatch, claimGameReward, getGameTodayCount } from '@/lib/api';
 
 function triggerHaptic(type: 'success' | 'error' | 'impact') {
   if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {

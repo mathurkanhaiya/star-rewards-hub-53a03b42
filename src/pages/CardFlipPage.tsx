@@ -278,18 +278,7 @@ export default function CardFlipPage() {
       setGamesPlayedToday(p => p + 1);
 
       if (user) {
-        const { data: bal } = await supabase
-          .from('balances').select('points,total_earned').eq('user_id', user.id).single();
-        if (bal) {
-          await supabase.from('balances').update({
-            points: bal.points + pts,
-            total_earned: bal.total_earned + pts,
-          }).eq('user_id', user.id);
-          await supabase.from('transactions').insert({
-            user_id: user.id, type: 'card_flip', points: pts,
-            description: `🃏 Card Flip: ${match === 'triple' ? 'Triple Match' : match === 'pair' ? 'Pair' : 'No Match'} +${pts} pts`,
-          });
-        }
+        await claimGameReward('card_flip', pts, `🃏 Card Flip: ${match === 'triple' ? 'Triple Match' : match === 'pair' ? 'Pair' : 'No Match'} +${pts} pts`);
         refreshBalance();
       }
     }

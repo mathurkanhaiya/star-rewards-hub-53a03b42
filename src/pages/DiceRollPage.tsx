@@ -233,18 +233,7 @@ export default function DiceRollPage() {
     triggerHaptic(pts >= 60 ? 'success' : 'impact');
 
     if (user) {
-      const { data: bal } = await supabase
-        .from('balances').select('points,total_earned').eq('user_id', user.id).single();
-      if (bal) {
-        await supabase.from('balances').update({
-          points: bal.points + pts,
-          total_earned: bal.total_earned + pts,
-        }).eq('user_id', user.id);
-        await supabase.from('transactions').insert({
-          user_id: user.id, type: 'dice_roll', points: pts,
-          description: `🎲 Dice Roll: ${tier.label} (${d1}+${d2}=${d1+d2}) +${pts} pts`,
-        });
-      }
+      await claimGameReward('dice_roll', pts, `🎲 Dice Roll: ${tier.label} (${d1}+${d2}=${d1+d2}) +${pts} pts`);
       refreshBalance();
     }
   };

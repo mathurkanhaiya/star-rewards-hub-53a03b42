@@ -257,22 +257,8 @@ export default function LuckyBoxPage() {
       triggerHaptic('error');
     }
 
-    if (user) {
-      const { data: bal } = await supabase
-        .from('balances').select('points,total_earned').eq('user_id', user.id).single();
-      if (bal) {
-        await supabase.from('transactions').insert({
-          user_id: user.id, type: 'lucky_box',
-          points: pickedReward.points,
-          description: `🎁 Lucky Box: ${pickedReward.label}`,
-        });
-        if (pickedReward.points > 0) {
-          await supabase.from('balances').update({
-            points: bal.points + pickedReward.points,
-            total_earned: bal.total_earned + pickedReward.points,
-          }).eq('user_id', user.id);
-        }
-      }
+    if (user && pickedReward.points > 0) {
+      await claimGameReward('lucky_box', pickedReward.points, `🎁 Lucky Box: ${pickedReward.label}`);
       refreshBalance();
     }
 

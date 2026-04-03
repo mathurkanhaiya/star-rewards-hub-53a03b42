@@ -237,18 +237,7 @@ export default function NumberGuessPage() {
     triggerHaptic(diff === 0 ? 'success' : diff <= 2 ? 'success' : 'error');
 
     if (user) {
-      const { data: bal } = await supabase
-        .from('balances').select('points,total_earned').eq('user_id', user.id).single();
-      if (bal) {
-        await supabase.from('balances').update({
-          points: bal.points + tier.pts,
-          total_earned: bal.total_earned + tier.pts,
-        }).eq('user_id', user.id);
-        await supabase.from('transactions').insert({
-          user_id: user.id, type: 'number_guess', points: tier.pts,
-          description: `🎯 Number Guess: ${tier.label} (picked ${n}, answer ${target}) +${tier.pts} pts`,
-        });
-      }
+      await claimGameReward('number_guess', tier.pts, `🎯 Number Guess: ${tier.label} (picked ${n}, answer ${target}) +${tier.pts} pts`);
       refreshBalance();
     }
   };

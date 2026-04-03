@@ -227,14 +227,8 @@ export default function CardFlipPage() {
 
   async function loadTodayCount() {
     setLimitLoading(true);
-    const start = new Date(); start.setUTCHours(0,0,0,0);
-    const { count } = await supabase
-      .from('transactions')
-      .select('id', { count:'exact', head:true })
-      .eq('user_id', user!.id)
-      .eq('type', 'card_flip')
-      .gte('created_at', start.toISOString());
-    setGamesPlayedToday(count || 0);
+    const count = await getGameTodayCount('card_flip');
+    setGamesPlayedToday(count);
     setLimitLoading(false);
   }
 

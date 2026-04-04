@@ -1,10 +1,42 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-telegram-init-data, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+function validateInitData(initData: string, botToken: string): { valid: boolean; user?: any } {
+  try {
+    if (!initData) return { valid: false };
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return { valid: false };
+    params.delete('hash');
+    const entries = Array.from(params.entries());
+    entries.sort(([a], [b]) => a.localeCompare(b));
+    const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join('\n');
+    const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
+    const computedHash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    if (computedHash !== hash) return { valid: false };
+    const authDate = parseInt(params.get('auth_date') || '0');
+    const now = Math.floor(Date.now() / 1000);
+    if (now - authDate > 86400) return { valid: false };
+    const userStr = params.get('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    return { valid: true, user };
+  } catch (e) {
+    console.error('initData validation error:', e);
+    return { valid: false };
+  }
+}
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
 async function sendTelegramMessage(chatId: number, text: string) {
   const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
@@ -22,18 +54,23 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN')!;
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { telegramUser, referralCode } = await req.json();
+    // Validate Telegram initData
+    const initData = req.headers.get('x-telegram-init-data') || '';
+    const { referralCode } = await req.json();
 
-    if (!telegramUser?.id) {
-      return new Response(JSON.stringify({ error: 'No telegram user' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    const validation = validateInitData(initData, botToken);
+    if (!validation.valid || !validation.user) {
+      console.error('telegram-auth: initData validation failed, initData length:', initData.length);
+      return json({ error: 'Invalid Telegram session' }, 401);
     }
+
+    const telegramUser = validation.user;
 
     // Check if user exists
     const { data: existingUser } = await supabase
@@ -43,13 +80,40 @@ serve(async (req) => {
       .single();
 
     if (existingUser) {
+      // Update last active and profile info
       await supabase
         .from('users')
-        .update({ last_active_at: new Date().toISOString(), photo_url: telegramUser.photo_url })
+        .update({
+          last_active_at: new Date().toISOString(),
+          photo_url: telegramUser.photo_url || existingUser.photo_url,
+          first_name: telegramUser.first_name || existingUser.first_name,
+          last_name: telegramUser.last_name || existingUser.last_name,
+          username: telegramUser.username || existingUser.username,
+        })
         .eq('id', existingUser.id);
 
-      return new Response(JSON.stringify({ user: existingUser }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      // Fetch balance for returning user
+      const { data: balance } = await supabase
+        .from('balances').select('*').eq('user_id', existingUser.id).single();
+
+      // Fetch settings
+      const { data: settingsRows } = await supabase.from('settings').select('key, value');
+      const settings: Record<string, string> = {};
+      (settingsRows || []).forEach((s: any) => { settings[s.key] = s.value; });
+
+      // Fetch notifications
+      const { data: notifs } = await supabase.from('notifications').select('*')
+        .eq('user_id', existingUser.id).order('created_at', { ascending: false }).limit(30);
+
+      const { count: unreadCount } = await supabase.from('notifications')
+        .select('id', { count: 'exact' }).eq('user_id', existingUser.id).eq('is_read', false);
+
+      return json({
+        user: existingUser,
+        balance: balance || null,
+        settings,
+        notifications: notifs || [],
+        unreadCount: unreadCount || 0,
       });
     }
 
@@ -84,9 +148,9 @@ serve(async (req) => {
 
     await supabase.from('balances').insert({ user_id: newUser.id, points: 200 });
 
-    const { data: settings } = await supabase.from('settings').select('key, value');
+    const { data: settingsRows } = await supabase.from('settings').select('key, value');
     const settingsMap: Record<string, string> = {};
-    (settings || []).forEach((s: { key: string; value: string }) => { settingsMap[s.key] = s.value; });
+    (settingsRows || []).forEach((s: { key: string; value: string }) => { settingsMap[s.key] = s.value; });
 
     const welcomeBonus = 200;
     const referralBonus = parseInt(settingsMap.points_per_referral || '500');
@@ -97,7 +161,6 @@ serve(async (req) => {
       description: '🎉 Welcome bonus',
     });
 
-    // Send welcome message via bot
     await sendTelegramMessage(telegramUser.id,
       `🎉 <b>Welcome to the app!</b>\n\nYou received <b>${welcomeBonus} points</b> as a welcome bonus!\n\nComplete tasks, spin the wheel, and invite friends to earn more! 🚀`
     );
@@ -122,7 +185,6 @@ serve(async (req) => {
         type: 'referral',
       });
 
-      // Send TG bot alert to referrer
       const { data: referrerUser } = await supabase.from('users').select('telegram_id').eq('id', referrerId).single();
       if (referrerUser) {
         await sendTelegramMessage(referrerUser.telegram_id,
@@ -130,31 +192,23 @@ serve(async (req) => {
         );
       }
 
-      // Award referred user
       await supabase.rpc('increment_points', { p_user_id: newUser.id, p_points: referredBonus });
       await supabase.from('transactions').insert({
         user_id: newUser.id, type: 'referral', points: referredBonus,
         description: '🔗 Joined via referral bonus',
       });
 
-      // Track active invite contests
       const now = new Date().toISOString();
       const { data: inviteContests } = await supabase
-        .from('contests')
-        .select('id')
-        .eq('contest_type', 'invite')
-        .eq('is_active', true)
-        .lte('starts_at', now)
-        .gte('ends_at', now);
+        .from('contests').select('id')
+        .eq('contest_type', 'invite').eq('is_active', true)
+        .lte('starts_at', now).gte('ends_at', now);
 
       if (inviteContests && inviteContests.length > 0) {
         for (const contest of inviteContests) {
           const { data: existing } = await supabase
-            .from('contest_entries')
-            .select('id, score')
-            .eq('contest_id', contest.id)
-            .eq('user_id', referrerId)
-            .single();
+            .from('contest_entries').select('id, score')
+            .eq('contest_id', contest.id).eq('user_id', referrerId).single();
 
           if (existing) {
             await supabase.from('contest_entries').update({
@@ -169,14 +223,20 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ user: newUser }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    // Fetch the new balance
+    const { data: newBalance } = await supabase
+      .from('balances').select('*').eq('user_id', newUser.id).single();
+
+    return json({
+      user: newUser,
+      balance: newBalance || { points: welcomeBonus, total_earned: welcomeBonus },
+      settings: settingsMap,
+      notifications: [],
+      unreadCount: 0,
     });
 
   } catch (error) {
     console.error('telegram-auth error:', error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return json({ error: (error as Error).message }, 500);
   }
 });

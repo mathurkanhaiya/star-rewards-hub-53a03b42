@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { supabase } from "@/integrations/supabase/client";
+import { claimGameReward } from "@/lib/api";
 
 interface AdsgramTaskProps {
   blockId: string;

@@ -73,7 +73,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
         if (bal) setBalance(bal);
         setUnreadCount(unread);
-      } catch {}
+      } catch (e) {
+        console.error('Poll error:', e);
+      }
     }, 30000);
     return () => clearInterval(interval);
   }, [user?.id]);
@@ -101,27 +103,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         referralCode = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
       } catch {}
 
-      const appUser = await initUser(
+      // initUser now returns user + balance + settings + notifications in one call
+      const result = await initUser(
         { id: tgUser.id, first_name: tgUser.first_name, last_name: tgUser.last_name, username: tgUser.username, photo_url: tgUser.photo_url },
         referralCode
       );
 
+      const appUser = result.user;
       setUser(appUser);
 
       if (appUser) {
-        const [bal, s, notifs, unread] = await Promise.all([
-          getUserBalance(appUser.id),
-          getSettings(),
-          getNotifications(appUser.id),
-          getUnreadNotifCount(appUser.id),
-        ]);
-        setBalance(bal);
-        setSettings(s);
-        setNotifications(notifs as Notification[]);
-        setUnreadCount(unread);
+        // Use data from the auth response directly — no separate calls needed
+        if (result.balance) setBalance(result.balance);
+        if (result.settings) setSettings(result.settings);
+        if (result.notifications) setNotifications(result.notifications as Notification[]);
+        if (result.unreadCount !== undefined) setUnreadCount(result.unreadCount);
       } else {
-        const s = await getSettings();
-        setSettings(s);
+        // Fallback: try to load settings from public endpoint
+        try {
+          const s = await getSettings();
+          setSettings(s);
+        } catch {}
       }
 
       showInterstitialAd().catch(() => {});
@@ -134,8 +136,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshBalance = useCallback(async () => {
     if (user) {
-      const bal = await getUserBalance(user.id);
-      setBalance(bal);
+      try {
+        const bal = await getUserBalance(user.id);
+        if (bal) setBalance(bal);
+      } catch (e) {
+        console.error('refreshBalance error:', e);
+      }
     }
   }, [user]);
 
@@ -145,12 +151,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshNotifications = useCallback(async () => {
     if (user) {
-      const [notifs, unread] = await Promise.all([
-        getNotifications(user.id),
-        getUnreadNotifCount(user.id),
-      ]);
-      setNotifications(notifs as Notification[]);
-      setUnreadCount(unread);
+      try {
+        const [notifs, unread] = await Promise.all([
+          getNotifications(user.id),
+          getUnreadNotifCount(user.id),
+        ]);
+        setNotifications(notifs as Notification[]);
+        setUnreadCount(unread);
+      } catch (e) {
+        console.error('refreshNotifications error:', e);
+      }
     }
   }, [user]);
 

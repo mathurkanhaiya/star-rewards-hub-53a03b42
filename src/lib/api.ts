@@ -84,7 +84,7 @@ export async function initUser(telegramUser: {
   last_name?: string;
   username?: string;
   photo_url?: string;
-}, referralCode?: string): Promise<AppUser | null> {
+}, referralCode?: string): Promise<{ user: AppUser | null; balance?: UserBalance | null; settings?: Record<string, string>; notifications?: any[]; unreadCount?: number }> {
   try {
     const response = await fetch(`${EDGE_FN}/telegram-auth`, {
       method: 'POST',
@@ -93,13 +93,23 @@ export async function initUser(telegramUser: {
         'apikey': API_KEY,
         'x-telegram-init-data': getInitData(),
       },
-      body: JSON.stringify({ telegramUser, referralCode }),
+      body: JSON.stringify({ referralCode }),
     });
     const data = await response.json();
-    return data.user || null;
+    if (!response.ok) {
+      console.error('initUser failed:', data.error);
+      return { user: null };
+    }
+    return {
+      user: data.user || null,
+      balance: data.balance || null,
+      settings: data.settings || {},
+      notifications: data.notifications || [],
+      unreadCount: data.unreadCount || 0,
+    };
   } catch (err) {
     console.error('initUser error:', err);
-    return null;
+    return { user: null };
   }
 }
 

@@ -33,30 +33,8 @@ export default function AdsgramTask({
       // ── Credit balance ──
       if (user) {
         try {
-          const { data: bal } = await supabase
-            .from("balances")
-            .select("points, total_earned")
-            .eq("user_id", user.id)
-            .single();
-
-          if (bal) {
-            await supabase
-              .from("balances")
-              .update({
-                points: bal.points + rewardAmount,
-                total_earned: bal.total_earned + rewardAmount,
-              })
-              .eq("user_id", user.id);
-
-            await supabase.from("transactions").insert({
-              user_id: user.id,
-              type: "adsgram_task",
-              points: rewardAmount,
-              description: `🎬 Adsgram Task: +${rewardAmount} pts`,
-            });
-
-            await refreshBalance();
-          }
+          await claimGameReward('adsgram_task', rewardAmount, `🎬 Adsgram Task: +${rewardAmount} pts`);
+          await refreshBalance();
         } catch (err) {
           console.error("Failed to credit reward:", err);
         }

@@ -13,13 +13,19 @@ function validateInitData(initData: string, botToken: string): { valid: boolean;
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
     if (!hash) return { valid: false };
+    // Remove hash and signature from data check string (Telegram docs require both excluded)
     params.delete('hash');
+    params.delete('signature');
     const entries = Array.from(params.entries());
     entries.sort(([a], [b]) => a.localeCompare(b));
     const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join('\n');
     const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
     const computedHash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    if (computedHash !== hash) return { valid: false };
+    if (computedHash !== hash) {
+      console.error('Hash mismatch. Expected:', hash, 'Got:', computedHash);
+      console.error('Data check string:', dataCheckString.substring(0, 200));
+      return { valid: false };
+    }
     const authDate = parseInt(params.get('auth_date') || '0');
     const now = Math.floor(Date.now() / 1000);
     if (now - authDate > 86400) return { valid: false };

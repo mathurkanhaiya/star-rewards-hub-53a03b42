@@ -13,6 +13,7 @@ function validateInitData(initData: string, botToken: string): { valid: boolean;
     const hash = params.get('hash');
     if (!hash) return { valid: false };
     params.delete('hash');
+    params.delete('signature');
     const entries = Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b));
     const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join('\n');
     const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();

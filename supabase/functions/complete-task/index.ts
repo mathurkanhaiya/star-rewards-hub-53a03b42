@@ -1,10 +1,36 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-telegram-init-data, x-supabase-client-platform, x-supabase-client-platform-version',
 };
+
+function validateInitData(initData: string, botToken: string): { valid: boolean; user?: any } {
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return { valid: false };
+    params.delete('hash');
+    params.delete('signature');
+    const entries = Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b));
+    const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join('\n');
+    const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
+    const computedHash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    if (computedHash !== hash) return { valid: false };
+    const authDate = parseInt(params.get('auth_date') || '0');
+    if (Math.floor(Date.now() / 1000) - authDate > 86400) return { valid: false };
+    const userStr = params.get('user');
+    return { valid: true, user: userStr ? JSON.parse(userStr) : null };
+  } catch { return { valid: false }; }
+}
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
 async function verifyTelegramMembership(botToken: string, chatId: string, telegramId: number): Promise<boolean> {
   try {
@@ -42,65 +68,58 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN')!;
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { userId, taskId } = await req.json();
-    if (!userId || !taskId) throw new Error('Missing required fields');
+    // Validate Telegram session
+    const initData = req.headers.get('x-telegram-init-data') || '';
+    const body = await req.json();
+    const { taskId } = body;
+
+    const validation = validateInitData(initData, botToken);
+    if (!validation.valid || !validation.user) {
+      return json({ success: false, message: 'Invalid session' }, 401);
+    }
+
+    // Get user from telegram_id
+    const { data: dbUser } = await supabase.from('users').select('id, telegram_id, is_banned')
+      .eq('telegram_id', validation.user.id).single();
+    if (!dbUser) return json({ success: false, message: 'User not found' }, 404);
+    if (dbUser.is_banned) return json({ success: false, message: 'Account suspended' }, 403);
+
+    const userId = dbUser.id;
+    if (!taskId) return json({ success: false, message: 'Missing taskId' }, 400);
 
     const { data: task } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('id', taskId)
-      .eq('is_active', true)
-      .single();
+      .from('tasks').select('*').eq('id', taskId).eq('is_active', true).single();
 
-    if (!task) {
-      return new Response(JSON.stringify({ success: false, message: 'Task not found or inactive' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    if (!task) return json({ success: false, message: 'Task not found or inactive' });
 
     // Check completion
     if (!task.is_repeatable) {
       const { data: existing } = await supabase
-        .from('user_tasks').select('id')
-        .eq('user_id', userId).eq('task_id', taskId).single();
-      if (existing) {
-        return new Response(JSON.stringify({ success: false, message: 'Task already completed!' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
+        .from('user_tasks').select('id').eq('user_id', userId).eq('task_id', taskId).single();
+      if (existing) return json({ success: false, message: 'Task already completed!' });
     } else {
       const { data: lastCompletion } = await supabase
         .from('user_tasks').select('next_available_at')
         .eq('user_id', userId).eq('task_id', taskId)
         .order('completed_at', { ascending: false }).limit(1).single();
       if (lastCompletion?.next_available_at && new Date(lastCompletion.next_available_at) > new Date()) {
-        return new Response(JSON.stringify({ success: false, message: 'Task cooldown not finished yet' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return json({ success: false, message: 'Task cooldown not finished yet' });
       }
     }
 
     // Verify TG membership for social tasks
     if (task.task_type === 'social' && task.link && task.link.includes('t.me/')) {
-      const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
-      if (botToken) {
-        const { data: userData } = await supabase.from('users').select('telegram_id').eq('id', userId).single();
-        if (userData) {
-          const chatId = extractChatId(task.link);
-          if (chatId) {
-            const isMember = await verifyTelegramMembership(botToken, chatId, userData.telegram_id);
-            if (!isMember) {
-              return new Response(JSON.stringify({
-                success: false,
-                message: 'Please join the channel/group first, then try again!'
-              }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
-          }
+      const chatId = extractChatId(task.link);
+      if (chatId) {
+        const isMember = await verifyTelegramMembership(botToken, chatId, dbUser.telegram_id);
+        if (!isMember) {
+          return json({ success: false, message: 'Please join the channel/group first, then try again!' });
         }
       }
     }
@@ -114,36 +133,20 @@ serve(async (req) => {
       user_id: userId, task_id: taskId, points_earned: points, next_available_at: nextAvailable,
     });
 
-    const { data: balance } = await supabase.from('balances').select('points, total_earned').eq('user_id', userId).single();
-    if (balance) {
-      await supabase.from('balances').update({
-        points: balance.points + points, total_earned: balance.total_earned + points,
-      }).eq('user_id', userId);
-    }
+    await supabase.rpc('increment_points', { p_user_id: userId, p_points: points });
 
     await supabase.from('transactions').insert({
       user_id: userId, type: 'earn', points,
       description: `✅ Task: ${task.title}`, reference_id: taskId,
     });
 
-    const { data: user } = await supabase.from('users').select('total_points, telegram_id').eq('id', userId).single();
-    if (user) {
-      const newTotal = user.total_points + points;
-      await supabase.from('users').update({ total_points: newTotal, level: Math.floor(newTotal / 10000) + 1 }).eq('id', userId);
+    await sendTelegramMessage(dbUser.telegram_id,
+      `✅ <b>Task Completed!</b>\n\n${task.title}\n+${points} points earned! 🎉`
+    );
 
-      // Send TG alert
-      await sendTelegramMessage(user.telegram_id,
-        `✅ <b>Task Completed!</b>\n\n${task.title}\n+${points} points earned! 🎉`
-      );
-    }
-
-    return new Response(JSON.stringify({ success: true, points }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
+    return json({ success: true, points });
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, message: (error as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    console.error('complete-task error:', error);
+    return json({ success: false, message: (error as Error).message }, 500);
   }
 });

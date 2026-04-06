@@ -1,10 +1,36 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-telegram-init-data, x-supabase-client-platform, x-supabase-client-platform-version',
 };
+
+function validateInitData(initData: string, botToken: string): { valid: boolean; user?: any } {
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return { valid: false };
+    params.delete('hash');
+    params.delete('signature');
+    const entries = Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b));
+    const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join('\n');
+    const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
+    const computedHash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    if (computedHash !== hash) return { valid: false };
+    const authDate = parseInt(params.get('auth_date') || '0');
+    if (Math.floor(Date.now() / 1000) - authDate > 86400) return { valid: false };
+    const userStr = params.get('user');
+    return { valid: true, user: userStr ? JSON.parse(userStr) : null };
+  } catch { return { valid: false }; }
+}
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
 const SPIN_PRIZES = [
   { type: 'points', points: 10, stars: 0, probability: 0.30 },
@@ -43,26 +69,33 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
+    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN')!;
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { userId } = await req.json();
-    if (!userId) throw new Error('No userId');
+    const initData = req.headers.get('x-telegram-init-data') || '';
+    await req.json().catch(() => ({}));
 
+    const validation = validateInitData(initData, botToken);
+    if (!validation.valid || !validation.user) {
+      return json({ success: false, message: 'Invalid session' }, 401);
+    }
+
+    const { data: dbUser } = await supabase.from('users').select('id, telegram_id')
+      .eq('telegram_id', validation.user.id).single();
+    if (!dbUser) return json({ success: false, message: 'User not found' }, 404);
+
+    const userId = dbUser.id;
     const today = new Date().toISOString().split('T')[0];
     const { count } = await supabase
-      .from('spin_results')
-      .select('id', { count: 'exact' })
-      .eq('user_id', userId)
-      .gte('spun_at', `${today}T00:00:00Z`);
+      .from('spin_results').select('id', { count: 'exact' })
+      .eq('user_id', userId).gte('spun_at', `${today}T00:00:00Z`);
 
     const maxSpins = 3;
     if ((count || 0) >= maxSpins) {
-      return new Response(JSON.stringify({ success: false, message: 'Daily spin limit reached! Come back tomorrow.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return json({ success: false, message: 'Daily spin limit reached! Come back tomorrow.' });
     }
 
     const prize = selectPrize();
@@ -72,55 +105,25 @@ serve(async (req) => {
       points_earned: prize.points, stars_earned: prize.stars,
     });
 
-    if (prize.type !== 'empty' && (prize.points > 0 || prize.stars > 0)) {
-      const { data: balance } = await supabase.from('balances').select('*').eq('user_id', userId).single();
-      if (balance) {
-        const updates: Record<string, number> = {
-          points: balance.points + prize.points,
-          total_earned: balance.total_earned + prize.points,
-        };
-        if (prize.stars > 0) updates.stars_balance = balance.stars_balance + prize.stars;
-        await supabase.from('balances').update(updates).eq('user_id', userId);
-      }
+    if (prize.type !== 'empty' && prize.points > 0) {
+      await supabase.rpc('increment_points', { p_user_id: userId, p_points: prize.points });
 
       await supabase.from('transactions').insert({
         user_id: userId, type: 'spin', points: prize.points,
-        description: prize.stars > 0 ? `🎡 Spin: ${prize.stars} ⭐ Stars won!` : `🎡 Spin: ${prize.points} points won!`,
+        description: `🎡 Spin: ${prize.points} points won!`,
       });
-
-      const { data: user } = await supabase.from('users').select('total_points, telegram_id').eq('id', userId).single();
-      if (user && prize.points > 0) {
-        const newTotal = user.total_points + prize.points;
-        await supabase.from('users').update({ total_points: newTotal, level: Math.floor(newTotal / 10000) + 1 }).eq('id', userId);
-      }
-
-      // Send TG alert for big wins
-      if (user && (prize.points >= 500 || prize.stars >= 1)) {
-        const winText = prize.stars > 0 ? `${prize.stars} ⭐ Stars` : `${prize.points} points`;
-        await sendTelegramMessage(user.telegram_id,
-          `🎡 <b>Spin Win!</b>\n\nYou won <b>${winText}</b>! 🎉`
-        );
-      }
     }
 
-    // Check if this was the last spin — notify user spins are depleted
     const usedSpins = (count || 0) + 1;
     if (usedSpins >= maxSpins) {
-      const { data: user } = await supabase.from('users').select('telegram_id').eq('id', userId).single();
-      if (user) {
-        await sendTelegramMessage(user.telegram_id,
-          `🎡 <b>Spins Used Up!</b>\n\nYou've used all ${maxSpins} spins today.\nCome back tomorrow for more! ⏰`
-        );
-      }
+      await sendTelegramMessage(dbUser.telegram_id,
+        `🎡 <b>Spins Used Up!</b>\n\nYou've used all ${maxSpins} spins today.\nCome back tomorrow for more! ⏰`
+      );
     }
 
-    return new Response(JSON.stringify({
-      success: true, result: prize.type, points: prize.points, stars: prize.stars,
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
+    return json({ success: true, result: prize.type, points: prize.points, stars: prize.stars });
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, message: (error as Error).message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    console.error('spin-wheel error:', error);
+    return json({ success: false, message: (error as Error).message }, 500);
   }
 });

@@ -275,8 +275,8 @@ export async function completeTask(userId: string, taskId: string): Promise<{ su
   try {
     const response = await fetch(`${EDGE_FN}/complete-task`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
-      body: JSON.stringify({ userId, taskId }),
+      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY, 'x-telegram-init-data': getInitData() },
+      body: JSON.stringify({ taskId }),
     });
     return await response.json();
   } catch {
@@ -288,8 +288,8 @@ export async function claimDailyReward(userId: string): Promise<{ success: boole
   try {
     const response = await fetch(`${EDGE_FN}/daily-reward`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
-      body: JSON.stringify({ userId }),
+      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY, 'x-telegram-init-data': getInitData() },
+      body: JSON.stringify({}),
     });
     return await response.json();
   } catch {
@@ -301,8 +301,8 @@ export async function spinWheel(userId: string): Promise<{ success: boolean; res
   try {
     const response = await fetch(`${EDGE_FN}/spin-wheel`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
-      body: JSON.stringify({ userId }),
+      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY, 'x-telegram-init-data': getInitData() },
+      body: JSON.stringify({}),
     });
     return await response.json();
   } catch {
@@ -316,8 +316,8 @@ export async function submitWithdrawal(
   try {
     const response = await fetch(`${EDGE_FN}/withdraw`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
-      body: JSON.stringify({ userId, method, points, walletAddress }),
+      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY, 'x-telegram-init-data': getInitData() },
+      body: JSON.stringify({ method, points, walletAddress }),
     });
     return await response.json();
   } catch {
@@ -329,8 +329,8 @@ export async function logAdWatch(userId: string, adType: string, rewardGiven: nu
   try {
     const response = await fetch(`${EDGE_FN}/log-ad`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
-      body: JSON.stringify({ userId, adType, rewardGiven }),
+      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY, 'x-telegram-init-data': getInitData() },
+      body: JSON.stringify({ adType, rewardGiven }),
     });
     return await response.json();
   } catch {

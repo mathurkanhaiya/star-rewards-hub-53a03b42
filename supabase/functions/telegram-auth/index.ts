@@ -13,9 +13,8 @@ function validateInitData(initData: string, botToken: string): { valid: boolean;
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
     if (!hash) return { valid: false };
-    // Remove hash and signature from data check string (Telegram docs require both excluded)
+    // For bot-token validation, exclude only hash; signature stays in the payload if present
     params.delete('hash');
-    params.delete('signature');
     const entries = Array.from(params.entries());
     entries.sort(([a], [b]) => a.localeCompare(b));
     const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join('\n');

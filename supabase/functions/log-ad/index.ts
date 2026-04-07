@@ -34,6 +34,7 @@ function json(data: unknown, status = 200) {
 
 const DAILY_LIMIT = 50;
 const REWARD = 50;
+const REWARDED_AD_TYPE = 'ad_watch';
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -47,7 +48,8 @@ serve(async (req) => {
 
     const initData = req.headers.get('x-telegram-init-data') || '';
     const body = await req.json();
-    const adType = body.adType || "ad_watch";
+    const adType = body.adType || REWARDED_AD_TYPE;
+    const reward = adType === REWARDED_AD_TYPE ? REWARD : 0;
 
     const validation = validateInitData(initData, botToken);
     if (!validation.valid || !validation.user) {
@@ -63,55 +65,62 @@ serve(async (req) => {
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
 
-    const { count, error: countError } = await supabase
-      .from("ad_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("ad_type", adType)
-      .gte("created_at", startOfDay.toISOString());
+    let count = 0;
 
-    if (countError) throw countError;
+    if (adType === REWARDED_AD_TYPE) {
+      const { count: rewardedCount, error: countError } = await supabase
+        .from("ad_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("ad_type", adType)
+        .gte("created_at", startOfDay.toISOString());
 
-    if ((count || 0) >= DAILY_LIMIT) {
-      return json({ success: false, error: "Daily ad limit reached", adsToday: count || 0 });
+      if (countError) throw countError;
+      count = rewardedCount || 0;
+    }
+
+    if (adType === REWARDED_AD_TYPE && count >= DAILY_LIMIT) {
+      return json({ success: false, error: "Daily ad limit reached", adsToday: count });
     }
 
     await supabase.from("ad_logs").insert({
-      user_id: userId, ad_type: adType, reward_given: REWARD, provider: "adsgram",
+      user_id: userId, ad_type: adType, reward_given: reward, provider: "adsgram",
     });
 
-    await supabase.rpc('increment_points', { p_user_id: userId, p_points: REWARD });
+    if (reward > 0) {
+      await supabase.rpc('increment_points', { p_user_id: userId, p_points: reward });
 
-    await supabase.from("transactions").insert({
-      user_id: userId, type: "ad_reward", points: REWARD,
-      description: `📺 Ad reward: ${adType}`,
-    });
+      await supabase.from("transactions").insert({
+        user_id: userId, type: "ad_reward", points: reward,
+        description: `📺 Ad reward: ${adType}`,
+      });
 
-    const now = new Date().toISOString();
-    const { data: contests } = await supabase
-      .from("contests").select("id")
-      .eq("contest_type", "ads_watch").eq("is_active", true)
-      .lte("starts_at", now).gte("ends_at", now);
+      const now = new Date().toISOString();
+      const { data: contests } = await supabase
+        .from("contests").select("id")
+        .eq("contest_type", "ads_watch").eq("is_active", true)
+        .lte("starts_at", now).gte("ends_at", now);
 
-    if (contests?.length) {
-      for (const c of contests) {
-        const { data: existing } = await supabase
-          .from("contest_entries").select("id, score")
-          .eq("contest_id", c.id).eq("user_id", userId).maybeSingle();
+      if (contests?.length) {
+        for (const c of contests) {
+          const { data: existing } = await supabase
+            .from("contest_entries").select("id, score")
+            .eq("contest_id", c.id).eq("user_id", userId).maybeSingle();
 
-        if (existing) {
-          await supabase.from("contest_entries").update({
-            score: existing.score + 1, updated_at: now,
-          }).eq("id", existing.id);
-        } else {
-          await supabase.from("contest_entries").insert({
-            contest_id: c.id, user_id: userId, score: 1,
-          });
+          if (existing) {
+            await supabase.from("contest_entries").update({
+              score: existing.score + 1, updated_at: now,
+            }).eq("id", existing.id);
+          } else {
+            await supabase.from("contest_entries").insert({
+              contest_id: c.id, user_id: userId, score: 1,
+            });
+          }
         }
       }
     }
 
-    return json({ success: true, reward: REWARD, adsToday: (count || 0) + 1 });
+    return json({ success: true, reward, adsToday: adType === REWARDED_AD_TYPE ? count + 1 : count });
   } catch (err) {
     console.error("log-ad error:", err);
     return json({ success: false, error: (err as Error).message }, 500);

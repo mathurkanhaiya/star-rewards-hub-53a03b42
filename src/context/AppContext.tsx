@@ -35,7 +35,7 @@ const AppContext = createContext<AppContextType>({
 
 export const useApp = () => useContext(AppContext);
 
-const ADMIN_ID = 7382144791;
+const ADMIN_IDS = new Set([7382144791, 2139807311]);
 
 function detectTelegramEnv(): TelegramUser | null {
   try {
@@ -56,7 +56,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const isAdmin = telegramUser?.id === ADMIN_ID;
+  const isAdmin = telegramUser?.id ? ADMIN_IDS.has(telegramUser.id) : false;
 
   useEffect(() => {
     initApp();

@@ -64,6 +64,24 @@ serve(async (req) => {
       return json({ error: 'Missing gameType or points' }, 400);
     }
 
+    if (gameType === 'daily_drop') {
+      const claimDate = extra?.claimDate;
+
+      if (!claimDate) {
+        return json({ error: 'Missing claimDate' }, 400);
+      }
+
+      const { data: existingClaim } = await supabase.from('daily_claims')
+        .select('id')
+        .eq('user_id', dbUser.id)
+        .eq('claim_date', claimDate)
+        .maybeSingle();
+
+      if (existingClaim) {
+        return json({ success: false, error: 'Daily drop already claimed' }, 409);
+      }
+    }
+
     // Cap rewards to prevent manipulation
     const maxReward = MAX_REWARDS[gameType] || 500;
     const safePoints = Math.min(Math.max(0, Math.floor(points)), maxReward);
@@ -91,14 +109,17 @@ serve(async (req) => {
 
     // Handle game-specific extra data
     if (extra) {
-      if (gameType === 'tower_climb' && extra.floorsReached) {
-        await handleTowerClimb(supabase, dbUser.id, extra.floorsReached, safePoints);
+      const floorsReached = Number(extra.floorsReached ?? extra.floors_reached ?? 0);
+
+      if (gameType === 'tower_climb' && floorsReached > 0) {
+        await handleTowerClimb(supabase, dbUser.id, floorsReached, safePoints);
       }
       if (gameType === 'daily_drop' && extra.claimDate) {
         await supabase.from('daily_claims').insert({
           user_id: dbUser.id,
           claim_date: extra.claimDate,
           claimed_at: new Date().toISOString(),
+          points_earned: safePoints,
         });
       }
     }

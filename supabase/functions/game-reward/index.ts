@@ -41,7 +41,8 @@ const MAX_REWARDS: Record<string, number> = {
   lucky_box: 500,
   tower_climb: 2000,
   ad_reward: 200,
-  farm_collect: 200,
+  farm_claim: 200,
+  adsgram_task: 200,
 };
 
 serve(async (req) => {
@@ -63,6 +64,12 @@ serve(async (req) => {
     if (!gameType || typeof points !== 'number') {
       return json({ error: 'Missing gameType or points' }, 400);
     }
+
+    // Get user first
+    const { data: dbUser } = await supabase.from('users').select('id, is_banned')
+      .eq('telegram_id', validation.user.id).single();
+    if (!dbUser) return json({ error: 'User not found' }, 404);
+    if (dbUser.is_banned) return json({ error: 'Account suspended' }, 403);
 
     if (gameType === 'daily_drop') {
       const claimDate = extra?.claimDate;
@@ -89,12 +96,6 @@ serve(async (req) => {
     if (safePoints <= 0) {
       return json({ success: true, points: 0 });
     }
-
-    // Get user
-    const { data: dbUser } = await supabase.from('users').select('id, is_banned')
-      .eq('telegram_id', validation.user.id).single();
-    if (!dbUser) return json({ error: 'User not found' }, 404);
-    if (dbUser.is_banned) return json({ error: 'Account suspended' }, 403);
 
     // Update balance atomically
     await supabase.rpc('increment_points', { p_user_id: dbUser.id, p_points: safePoints });

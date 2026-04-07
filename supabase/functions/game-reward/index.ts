@@ -41,7 +41,8 @@ const MAX_REWARDS: Record<string, number> = {
   lucky_box: 500,
   tower_climb: 2000,
   ad_reward: 200,
-  farm_collect: 200,
+  farm_claim: 200,
+  adsgram_task: 200,
 };
 
 serve(async (req) => {
@@ -64,6 +65,30 @@ serve(async (req) => {
       return json({ error: 'Missing gameType or points' }, 400);
     }
 
+    // Get user first
+    const { data: dbUser } = await supabase.from('users').select('id, is_banned')
+      .eq('telegram_id', validation.user.id).single();
+    if (!dbUser) return json({ error: 'User not found' }, 404);
+    if (dbUser.is_banned) return json({ error: 'Account suspended' }, 403);
+
+    if (gameType === 'daily_drop') {
+      const claimDate = extra?.claimDate;
+
+      if (!claimDate) {
+        return json({ error: 'Missing claimDate' }, 400);
+      }
+
+      const { data: existingClaim } = await supabase.from('daily_claims')
+        .select('id')
+        .eq('user_id', dbUser.id)
+        .eq('claim_date', claimDate)
+        .maybeSingle();
+
+      if (existingClaim) {
+        return json({ success: false, error: 'Daily drop already claimed' }, 409);
+      }
+    }
+
     // Cap rewards to prevent manipulation
     const maxReward = MAX_REWARDS[gameType] || 500;
     const safePoints = Math.min(Math.max(0, Math.floor(points)), maxReward);
@@ -71,12 +96,6 @@ serve(async (req) => {
     if (safePoints <= 0) {
       return json({ success: true, points: 0 });
     }
-
-    // Get user
-    const { data: dbUser } = await supabase.from('users').select('id, is_banned')
-      .eq('telegram_id', validation.user.id).single();
-    if (!dbUser) return json({ error: 'User not found' }, 404);
-    if (dbUser.is_banned) return json({ error: 'Account suspended' }, 403);
 
     // Update balance atomically
     await supabase.rpc('increment_points', { p_user_id: dbUser.id, p_points: safePoints });
@@ -91,14 +110,17 @@ serve(async (req) => {
 
     // Handle game-specific extra data
     if (extra) {
-      if (gameType === 'tower_climb' && extra.floorsReached) {
-        await handleTowerClimb(supabase, dbUser.id, extra.floorsReached, safePoints);
+      const floorsReached = Number(extra.floorsReached ?? extra.floors_reached ?? 0);
+
+      if (gameType === 'tower_climb' && floorsReached > 0) {
+        await handleTowerClimb(supabase, dbUser.id, floorsReached, safePoints);
       }
       if (gameType === 'daily_drop' && extra.claimDate) {
         await supabase.from('daily_claims').insert({
           user_id: dbUser.id,
           claim_date: extra.claimDate,
           claimed_at: new Date().toISOString(),
+          points_earned: safePoints,
         });
       }
     }

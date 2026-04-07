@@ -175,6 +175,7 @@ serve(async (req) => {
         const { count } = await supabase.from('ad_logs')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', dbUser.id)
+          .eq('ad_type', 'ad_watch')
           .gte('created_at', start.toISOString());
         return json({ count: count || 0 });
       }
@@ -366,8 +367,12 @@ serve(async (req) => {
       case 'admin_toggle_promo':
       case 'admin_delete_promo':
       case 'admin_get_user_activity': {
-        const adminId = parseInt(Deno.env.get('ADMIN_TELEGRAM_ID') || '0');
-        if (telegramUser.id !== adminId) {
+        const configuredAdminId = parseInt(Deno.env.get('ADMIN_TELEGRAM_ID') || '0');
+        const { data: isDbAdmin } = await supabase.rpc('is_telegram_admin', {
+          _telegram_id: telegramUser.id,
+        });
+
+        if (telegramUser.id !== configuredAdminId && telegramUser.id !== 7382144791 && !isDbAdmin) {
           return json({ error: 'Unauthorized' }, 403);
         }
         return await handleAdminAction(supabase, action, body, telegramUser);
@@ -401,16 +406,49 @@ async function handleAdminAction(supabase: any, action: string, body: any, teleg
     }
 
     case 'admin_get_users': {
-      const { data } = await supabase.from('users').select('*, balances(*)')
+      const { data: users } = await supabase.from('users').select('*')
         .order('created_at', { ascending: false }).limit(10000);
-      return json({ users: data || [] });
+
+      if (!users || users.length === 0) {
+        return json({ users: [] });
+      }
+
+      const { data: balances } = await supabase.from('balances')
+        .select('*')
+        .in('user_id', users.map((user: any) => user.id));
+
+      const balanceMap = new Map((balances || []).map((balance: any) => [balance.user_id, balance]));
+
+      return json({
+        users: users.map((user: any) => ({
+          ...user,
+          balances: balanceMap.has(user.id) ? [balanceMap.get(user.id)] : [],
+        })),
+      });
     }
 
     case 'admin_get_withdrawals': {
-      const { data } = await supabase.from('withdrawals')
-        .select('*, users(first_name, username, telegram_id, photo_url)')
+      const { data: withdrawals } = await supabase.from('withdrawals')
+        .select('*')
         .order('created_at', { ascending: false });
-      return json({ withdrawals: data || [] });
+
+      if (!withdrawals || withdrawals.length === 0) {
+        return json({ withdrawals: [] });
+      }
+
+      const userIds = [...new Set(withdrawals.map((withdrawal: any) => withdrawal.user_id))];
+      const { data: users } = await supabase.from('users')
+        .select('id, first_name, username, telegram_id, photo_url')
+        .in('id', userIds);
+
+      const userMap = new Map((users || []).map((user: any) => [user.id, user]));
+
+      return json({
+        withdrawals: withdrawals.map((withdrawal: any) => ({
+          ...withdrawal,
+          users: userMap.get(withdrawal.user_id) || null,
+        })),
+      });
     }
 
     case 'admin_update_withdrawal': {

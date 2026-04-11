@@ -32,7 +32,7 @@ function json(data: unknown, status = 200) {
   });
 }
 
-const DAILY_LIMIT = 50;
+const DAILY_LIMIT = 100;
 const REWARD = 50;
 const REWARDED_AD_TYPE = 'ad_watch';
 

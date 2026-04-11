@@ -4,13 +4,13 @@ import { submitWithdrawal, getTodayAdsCount } from ‘@/lib/api’;
 
 const TON_TIERS = [
 { pts: 5000,  ton: 0.05 },
-{ pts: 10000, ton: 0.1 },
+{ pts: 10000, ton: 0.1  },
 { pts: 15000, ton: 0.15 },
-{ pts: 20000, ton: 0.2 },
+{ pts: 20000, ton: 0.2  },
 ];
 
 const UPI_TIERS = [
-{ pts: 5000,  inr: 5 },
+{ pts: 5000,  inr: 5  },
 { pts: 10000, inr: 10 },
 { pts: 15000, inr: 15 },
 { pts: 20000, inr: 20 },
@@ -19,7 +19,7 @@ const UPI_TIERS = [
 const REQUIRED_ADS = 40;
 
 function isValidTon(addr: string) {
-return /^UQ[A-Za-z0-9_-]{46,}$/.test(addr);
+return /^[UE]Q[A-Za-z0-9_-]{46,}$/.test(addr);
 }
 
 function isValidUpi(upi: string) {
@@ -142,15 +142,15 @@ const CSS = `
 
 export default function WalletPage() {
 const { user, balance, refreshBalance } = useApp();
-const [adCount, setAdCount]           = useState(0);
-const [modalMode, setModalMode]       = useState<ModalMode>(null);
-const [selectedTonTier, setSelectedTonTier] = useState<typeof TON_TIERS[0] | null>(null);
-const [selectedUpiTier, setSelectedUpiTier] = useState<typeof UPI_TIERS[0] | null>(null);
-const [wallet, setWallet]             = useState(’’);
-const [upiId, setUpiId]               = useState(’’);
-const [message, setMessage]           = useState(’’);
-const [msgType, setMsgType]           = useState<‘error’ | ‘success’>(‘error’);
-const [submitting, setSubmitting]     = useState(false);
+const [adCount, setAdCount]                   = useState(0);
+const [modalMode, setModalMode]               = useState<ModalMode>(null);
+const [selectedTonTier, setSelectedTonTier]   = useState<typeof TON_TIERS[0] | null>(null);
+const [selectedUpiTier, setSelectedUpiTier]   = useState<typeof UPI_TIERS[0] | null>(null);
+const [wallet, setWallet]                     = useState(’’);
+const [upiId, setUpiId]                       = useState(’’);
+const [message, setMessage]                   = useState(’’);
+const [msgType, setMsgType]                   = useState<‘error’ | ‘success’>(‘error’);
+const [submitting, setSubmitting]             = useState(false);
 
 const pts         = balance?.points || 0;
 const progress    = Math.min((adCount / REQUIRED_ADS) * 100, 100);
@@ -219,7 +219,6 @@ if (!adsComplete) {
 setMessage(`Watch ${REQUIRED_ADS - adCount} more ads today`); setMsgType(‘error’); return;
 }
 setSubmitting(true);
-/* Submit as UPI method — wallet_address field stores UPI ID */
 const res = await submitWithdrawal(user!.id, ‘upi’, selectedUpiTier.pts, upiId.trim());
 if (res.success) {
 setMessage(‘UPI Withdrawal submitted!’); setMsgType(‘success’);
@@ -259,7 +258,7 @@ return (
         <div className="wp-ads-count">{adCount} / {REQUIRED_ADS}</div>
       </div>
       <div className="wp-progress-track">
-        <div className="wp-progress-fill" style={{ width:`${progress}%` }}/>
+        <div className="wp-progress-fill" style={{ width: `${progress}%` }} />
       </div>
       <div className={`wp-ads-msg ${adsComplete ? 'done' : ''}`}>
         {adsComplete
@@ -275,14 +274,17 @@ return (
         const notEnoughPts = pts < t.pts;
         const locked = notEnoughPts || !adsComplete;
         return (
-          <div key={i}
+          <div
+            key={i}
             className={`wp-tier ${locked ? 'locked' : 'unlocked'}`}
             onClick={() => !locked && openTonModal(t)}
           >
             {locked && <div className="wp-tier-lock">🔒</div>}
             <div className="wp-tier-pts">{t.pts.toLocaleString()} pts</div>
-            <div className={`wp-tier-ton ${locked ? 'locked-val' : ''}`}
-              style={!locked ? { color:'#22d3ee', textShadow:'0 0 16px rgba(34,211,238,0.4)' } : {}}>
+            <div
+              className={`wp-tier-ton ${locked ? 'locked-val' : ''}`}
+              style={!locked ? { color: '#22d3ee', textShadow: '0 0 16px rgba(34,211,238,0.4)' } : {}}
+            >
               {t.ton} TON
             </div>
             {locked && (
@@ -311,14 +313,19 @@ return (
           const notEnoughPts = pts < t.pts;
           const locked = notEnoughPts || !adsComplete;
           return (
-            <div key={i}
+            <div
+              key={i}
               className={`wp-tier ${locked ? 'locked' : 'upi-unlocked'}`}
               onClick={() => !locked && openUpiModal(t)}
             >
               {locked && <div className="wp-tier-lock">🔒</div>}
               <div className="wp-tier-pts">{t.pts.toLocaleString()} pts</div>
-              <div className={`wp-tier-ton ${locked ? 'locked-val' : ''}`}
-                style={!locked ? { color:'#818cf8', textShadow:'0 0 16px rgba(99,102,241,0.4)', fontSize:20 } : { fontSize:20 }}>
+              <div
+                className={`wp-tier-ton ${locked ? 'locked-val' : ''}`}
+                style={!locked
+                  ? { color: '#818cf8', textShadow: '0 0 16px rgba(99,102,241,0.4)', fontSize: 20 }
+                  : { fontSize: 20 }}
+              >
                 ₹{t.inr} INR
               </div>
               {locked && (
@@ -334,8 +341,10 @@ return (
 
     {/* ── TON MODAL ── */}
     {modalMode === 'ton' && selectedTonTier && (
-      <div className="wp-modal-overlay"
-        onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
+      <div
+        className="wp-modal-overlay"
+        onClick={e => { if (e.target === e.currentTarget) closeModal(); }}
+      >
         <div className="wp-modal ton-modal">
           <div className="wp-modal-inner">
             <div className="wp-modal-title">Withdraw TON</div>
@@ -345,18 +354,29 @@ return (
             <div className="wp-modal-ton">{selectedTonTier.ton} TON</div>
 
             <div className="wp-input-label">TON Wallet Address</div>
-            <input className="wp-input"
-              value={wallet} onChange={e => setWallet(e.target.value)}
-              placeholder="UQ..." autoComplete="off" spellCheck={false}/>
+            <input
+              className="wp-input"
+              value={wallet}
+              onChange={e => setWallet(e.target.value)}
+              placeholder="UQ... or EQ..."
+              autoComplete="off"
+              spellCheck={false}
+            />
 
             <div className="wp-modal-ads">
               <div className="wp-modal-ads-label">Daily Ads</div>
-              <div className="wp-modal-ads-val">{adCount} / {REQUIRED_ADS} {adsComplete ? '✓' : ''}</div>
+              <div className="wp-modal-ads-val">
+                {adCount} / {REQUIRED_ADS} {adsComplete ? '✓' : ''}
+              </div>
             </div>
 
             {message && <div className={`wp-msg ${msgType}`}>{message}</div>}
 
-            <button className="wp-confirm-btn" onClick={handleTonWithdraw} disabled={submitting}>
+            <button
+              className="wp-confirm-btn"
+              onClick={handleTonWithdraw}
+              disabled={submitting}
+            >
               {submitting ? '···' : 'CONFIRM WITHDRAW'}
             </button>
             <button className="wp-cancel-btn" onClick={closeModal}>Cancel</button>
@@ -367,8 +387,10 @@ return (
 
     {/* ── UPI MODAL ── */}
     {modalMode === 'upi' && selectedUpiTier && (
-      <div className="wp-modal-overlay"
-        onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
+      <div
+        className="wp-modal-overlay"
+        onClick={e => { if (e.target === e.currentTarget) closeModal(); }}
+      >
         <div className="wp-modal upi-modal">
           <div className="wp-modal-inner">
             <div className="wp-modal-title">🇮🇳 UPI Withdraw</div>
@@ -377,7 +399,6 @@ return (
             </div>
             <div className="wp-modal-inr">₹{selectedUpiTier.inr}</div>
 
-            {/* Rate info */}
             <div className="wp-inr-info">
               <div className="wp-inr-info-txt">Rate</div>
               <div className="wp-inr-info-val">
@@ -398,7 +419,9 @@ return (
 
             <div className="wp-modal-ads">
               <div className="wp-modal-ads-label">Daily Ads</div>
-              <div className="wp-modal-ads-val">{adCount} / {REQUIRED_ADS} {adsComplete ? '✓' : ''}</div>
+              <div className="wp-modal-ads-val">
+                {adCount} / {REQUIRED_ADS} {adsComplete ? '✓' : ''}
+              </div>
             </div>
 
             <div className="wp-upi-warn">
@@ -408,8 +431,11 @@ return (
 
             {message && <div className={`wp-msg ${msgType}`}>{message}</div>}
 
-            <button className="wp-confirm-btn upi-btn"
-              onClick={handleUpiWithdraw} disabled={submitting}>
+            <button
+              className="wp-confirm-btn upi-btn"
+              onClick={handleUpiWithdraw}
+              disabled={submitting}
+            >
               {submitting ? '···' : '🇮🇳 CONFIRM UPI WITHDRAW'}
             </button>
             <button className="wp-cancel-btn" onClick={closeModal}>Cancel</button>

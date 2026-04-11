@@ -19,7 +19,7 @@ const UPI_TIERS = [
 const REQUIRED_ADS = 40;
 
 function isValidTon(addr: string) {
-return /^(UQ|EQ)[A-Za-z0-9_-]{46,}$/.test(addr);
+return /^UQ[A-Za-z0-9_-]{46,}$/.test(addr);
 }
 
 function isValidUpi(upi: string) {
@@ -156,12 +156,10 @@ const pts         = balance?.points || 0;
 const progress    = Math.min((adCount / REQUIRED_ADS) * 100, 100);
 const adsComplete = adCount >= REQUIRED_ADS;
 
-// ✅ FIX: added `balance` as dependency so adCount refreshes
-// every time the user watches an ad and balance updates
 useEffect(() => {
 if (!user) return;
 getTodayAdsCount().then(count => setAdCount(count));
-}, [user, balance]);
+}, [user]);
 
 function openTonModal(tier: typeof TON_TIERS[0]) {
 setSelectedTonTier(tier);
@@ -221,6 +219,7 @@ if (!adsComplete) {
 setMessage(`Watch ${REQUIRED_ADS - adCount} more ads today`); setMsgType(‘error’); return;
 }
 setSubmitting(true);
+/* Submit as UPI method — wallet_address field stores UPI ID */
 const res = await submitWithdrawal(user!.id, ‘upi’, selectedUpiTier.pts, upiId.trim());
 if (res.success) {
 setMessage(‘UPI Withdrawal submitted!’); setMsgType(‘success’);
@@ -348,7 +347,7 @@ return (
             <div className="wp-input-label">TON Wallet Address</div>
             <input className="wp-input"
               value={wallet} onChange={e => setWallet(e.target.value)}
-              placeholder="UQ... or EQ..." autoComplete="off" spellCheck={false}/>
+              placeholder="UQ..." autoComplete="off" spellCheck={false}/>
 
             <div className="wp-modal-ads">
               <div className="wp-modal-ads-label">Daily Ads</div>
@@ -378,6 +377,7 @@ return (
             </div>
             <div className="wp-modal-inr">₹{selectedUpiTier.inr}</div>
 
+            {/* Rate info */}
             <div className="wp-inr-info">
               <div className="wp-inr-info-txt">Rate</div>
               <div className="wp-inr-info-val">

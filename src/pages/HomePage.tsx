@@ -526,8 +526,6 @@ setFarmClaiming(false);
 const onAdReward = useCallback(async () => {
 if (!user) return;
 triggerHaptic(“success”);
-// logAdWatch handles both the ad_logs entry AND balance/transaction update.
-// Do NOT also call creditBalance — that would double-credit and create a duplicate row.
 await logAdWatch(user.id, “ad_watch”, AD_REWARD);
 refreshBalance();
 setAdsToday(p => p + 1);
